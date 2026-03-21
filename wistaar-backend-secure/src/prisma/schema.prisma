@@ -1,0 +1,361 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// User model - core user data
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique @db.VarChar(255) // Encrypted in application code
+  passwordHash  String    @db.VarChar(255)
+  name          String    @db.VarChar(255)
+  role          Role      @default(USER)
+  avatar        String?   @db.VarChar(500)
+  bio           String?   @db.Text
+  isEmailVerified Boolean @default(false)
+  emailVerificationToken String? @unique @db.VarChar(255)
+  emailVerificationExpiry DateTime?
+  
+  // Account security
+  accountLocked Boolean   @default(false)
+  lockUntil     DateTime?
+  failedAttempts Int      @default(0)
+  lastLogin     DateTime?
+  
+  // Password reset
+  passwordResetToken String? @unique @db.VarChar(255)
+  passwordResetExpiry DateTime?
+  
+  // Account management
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime? // Soft delete
+  
+  // Relations
+  books         Book[]
+  purchases     Purchase[]
+  reviews       Review[]
+  wishlists     Wishlist[]
+  notifications Notification[]
+  auditLogs     AuditLog[]
+  refreshTokens RefreshToken[]
+
+  @@index([email])
+  @@index([role])
+  @@map("users")
+}
+
+// Role enumeration
+enum Role {
+  USER      // Regular reader
+  AUTHOR    // Can publish books
+  ADMIN     // Can manage platform
+  SUPER_ADMIN // Full system access
+}
+
+// Refresh tokens for JWT management
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique @db.VarChar(500)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  revokedAt DateTime? // For token revocation
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+// Book model - published and draft books
+model Book {
+  id              String    @id @default(cuid())
+  title           String    @db.VarChar(500)
+  description     String    @db.LongText
+  genre           String    @db.VarChar(100)
+  price           Float     @db.Decimal(10, 2)
+  status          BookStatus @default(DRAFT)
+  
+  // Author & cover
+  authorId        String
+  author          User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  coverImage      String?   @db.VarChar(500) // S3 URL
+  coverImageEncrypted String? @db.VarChar(500) // Encrypted cover path
+  
+  // Manuscript
+  manuscriptUrl   String?   @db.VarChar(500) // S3 URL (encrypted at rest in S3)
+  manuscriptSize  Int? // File size in bytes
+  
+  // Metadata
+  totalChapters   Int       @default(0)
+  totalPages      Int?
+  language        String    @default("en") @db.VarChar(10)
+  isbn            String?   @unique @db.VarChar(50)
+  
+  // Analytics
+  viewCount       Int       @default(0)
+  purchaseCount   Int       @default(0)
+  rating          Float?    @db.Decimal(3, 2) // Average rating
+  
+  // Admin review
+  rejectionReason String?   @db.Text
+  adminNotes      String?   @db.Text
+  reviewedBy      String?
+  reviewedAt      DateTime?
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  // Relations
+  chapters        Chapter[]
+  purchases       Purchase[]
+  reviews         Review[]
+  wishlists       Wishlist[]
+  readingProgress ReadingProgress[]
+
+  @@index([authorId])
+  @@index([status])
+  @@index([genre])
+  @@map("books")
+}
+
+enum BookStatus {
+  DRAFT
+  PENDING
+  APPROVED
+  REJECTED
+  ARCHIVED
+}
+
+// Book chapters
+model Chapter {
+  id        String  @id @default(cuid())
+  bookId    String
+  book      Book    @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  
+  title     String  @db.VarChar(500)
+  content   String  @db.LongText
+  orderNum  Int
+  pageStart Int?
+  pageEnd   Int?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([bookId, orderNum])
+  @@index([bookId])
+  @@map("chapters")
+}
+
+// Purchases/Orders
+model Purchase {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bookId          String
+  book            Book      @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  
+  amount          Float     @db.Decimal(10, 2)
+  currency        String    @default("INR") @db.VarChar(10)
+  status          PaymentStatus @default(PENDING)
+  
+  // Payment details (encrypted in code)
+  transactionId   String?   @unique @db.VarChar(255)
+  paymentMethod   String?   @db.VarChar(50)
+  paymentGateway  String?   @db.VarChar(50) // razorpay, stripe, coinbase
+  
+  couponCode      String?   @db.VarChar(50)
+  discountAmount  Float     @default(0) @db.Decimal(10, 2)
+  finalAmount     Float     @db.Decimal(10, 2)
+  
+  // Author earnings
+  authorShare     Float     @db.Decimal(10, 2)
+  platformShare   Float     @db.Decimal(10, 2)
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  completedAt     DateTime?
+
+  @@index([userId])
+  @@index([bookId])
+  @@index([status])
+  @@index([transactionId])
+  @@map("purchases")
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+// User reviews and ratings
+model Review {
+  id        String  @id @default(cuid())
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bookId    String
+  book      Book    @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  
+  rating    Int     @db.UnsignedInt // 1-5 stars
+  title     String? @db.VarChar(200)
+  content   String? @db.Text
+  
+  helpful   Int     @default(0)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, bookId]) // One review per user per book
+  @@index([userId])
+  @@index([bookId])
+  @@map("reviews")
+}
+
+// Wishlist
+model Wishlist {
+  id        String  @id @default(cuid())
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bookId    String
+  book      Book    @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+
+  @@unique([userId, bookId]) // One wishlist entry per user per book
+  @@index([userId])
+  @@map("wishlists")
+}
+
+// Reading progress tracking
+model ReadingProgress {
+  id        String  @id @default(cuid())
+  userId    String
+  bookId    String
+  book      Book    @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  
+  currentPage Int   @default(0)
+  totalPages  Int
+  progress    Float @default(0) @db.Decimal(5, 2) // 0-100 percentage
+  
+  startedAt   DateTime?
+  lastReadAt  DateTime @default(now())
+
+  @@unique([userId, bookId])
+  @@index([userId])
+  @@map("reading_progress")
+}
+
+// In-app notifications
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  type      String   @db.VarChar(50) // purchase_complete, book_approved, etc.
+  title     String   @db.VarChar(200)
+  message   String   @db.Text
+  data      String?  @db.LongText // JSON data (encrypted in code)
+  
+  read      Boolean  @default(false)
+  readAt    DateTime?
+  
+  createdAt DateTime @default(now())
+  expiresAt DateTime? // Auto-delete old notifications
+
+  @@index([userId])
+  @@index([read])
+  @@map("notifications")
+}
+
+// Audit log for admin actions and security events
+model AuditLog {
+  id          Int       @id @autoincrement
+  userId      String?
+  user        User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  
+  action      String    @db.VarChar(100)
+  targetType  String    @db.VarChar(50) // user, book, payment, etc.
+  targetId    String    @db.VarChar(255)
+  
+  details     String?   @db.LongText // JSON details (never includes sensitive data)
+  ipAddress   String?   @db.VarChar(45) // IPv6 safe
+  userAgent   String?   @db.Text
+  
+  createdAt   DateTime  @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([targetType])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// Coupons and promotional codes
+model Coupon {
+  id            String    @id @default(cuid())
+  code          String    @unique @db.VarChar(50)
+  description   String?   @db.VarChar(500)
+  
+  discountType  String    @db.VarChar(20) // percentage or fixed
+  discountValue Float     @db.Decimal(10, 2)
+  
+  maxUses       Int?
+  currentUses   Int       @default(0)
+  minPurchaseAmount Float? @db.Decimal(10, 2)
+  
+  validFrom     DateTime
+  validUntil    DateTime
+  isActive      Boolean   @default(true)
+  
+  createdBy     String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([code])
+  @@index([isActive])
+  @@map("coupons")
+}
+
+// Author earnings tracking
+model AuthorEarning {
+  id            String    @id @default(cuid())
+  authorId      String
+  purchaseId    String
+  bookId        String
+  
+  amount        Float     @db.Decimal(10, 2)
+  currency      String    @default("INR")
+  
+  paid          Boolean   @default(false)
+  paidAt        DateTime?
+  
+  createdAt     DateTime  @default(now())
+
+  @@index([authorId])
+  @@map("author_earnings")
+}
+
+// Payout information
+model AuthorPayout {
+  id            String    @id @default(cuid())
+  authorId      String
+  
+  totalAmount   Float     @db.Decimal(15, 2)
+  status        String    @db.VarChar(20) // pending, processed, failed
+  bankDetails   String?   @db.Text // Encrypted in code
+  
+  processedAt   DateTime?
+  createdAt     DateTime  @default(now())
+
+  @@index([authorId])
+  @@map("author_payouts")
+}
