@@ -24,6 +24,9 @@ const Library = lazy(() => import("@/pages/Library"));
 const Cart = lazy(() => import("@/pages/Cart"));
 const Profile = lazy(() => import("@/pages/Profile"));
 const NotFound = lazy(() => import("@/pages/NotFound"));
+const TermsOfService = lazy(() => import("@/pages/TermsOfService"));
+const PrivacyPolicy = lazy(() => import("@/pages/PrivacyPolicy"));
+const CopyrightPolicy = lazy(() => import("@/pages/CopyrightPolicy"));
 
 const LazyFallback = () => (
   <div className="min-h-screen bg-background">
@@ -149,6 +152,30 @@ const AnimatedRoutes = () => {
               element={
                 <PageTransition>
                   <Profile />
+                </PageTransition>
+              }
+            />
+            <Route
+              path="/terms"
+              element={
+                <PageTransition>
+                  <TermsOfService />
+                </PageTransition>
+              }
+            />
+            <Route
+              path="/privacy"
+              element={
+                <PageTransition>
+                  <PrivacyPolicy />
+                </PageTransition>
+              }
+            />
+            <Route
+              path="/copyright"
+              element={
+                <PageTransition>
+                  <CopyrightPolicy />
                 </PageTransition>
               }
             />
