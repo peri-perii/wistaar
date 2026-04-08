@@ -6,6 +6,7 @@ import { BrowserRouter } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import AnimatedRoutes from "@/components/AnimatedRoutes";
+import { Analytics } from "@vercel/analytics/react";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -28,6 +29,7 @@ const App = () => (
           <BrowserRouter>
             <AnimatedRoutes />
           </BrowserRouter>
+          <Analytics />
         </TooltipProvider>
       </AuthProvider>
     </ThemeProvider>
