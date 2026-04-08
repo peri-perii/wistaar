@@ -1,0 +1,22 @@
+{
+  "name": "Wistaar: Global Reading Studio",
+  "short_name": "Wistaar",
+  "description": "Premium digital reading and publishing studio.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#000000",
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/favicon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

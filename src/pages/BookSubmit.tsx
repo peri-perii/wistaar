@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Upload, FileText, Image as ImageIcon, IndianRupee } from 'lucide-react';
+import { Upload, FileText, Image as ImageIcon, IndianRupee, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { z } from 'zod';
@@ -43,6 +43,8 @@ export default function BookSubmit() {
   const [freeChapters, setFreeChapters] = useState(3);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [pdfAnalysis, setPdfAnalysis] = useState<{ hasText: boolean; pageCount: number } | null>(null);
+  const [analyzingPdf, setAnalyzingPdf] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) navigate('/author/signup');
@@ -68,12 +70,41 @@ export default function BookSubmit() {
         setErrors(prev => ({ ...prev, manuscript: 'Only PDF files are accepted' }));
         return;
       }
-      if (file.size > 20 * 1024 * 1024) {
-        setErrors(prev => ({ ...prev, manuscript: 'Manuscript must be under 20MB' }));
+      if (file.size > 50 * 1024 * 1024) {
+        setErrors(prev => ({ ...prev, manuscript: 'Manuscript must be under 50MB' }));
         return;
       }
       setManuscriptFile(file);
+      setPdfAnalysis(null);
       setErrors(prev => { const { manuscript, ...rest } = prev; return rest; });
+      // Analyze PDF in background
+      analyzePDF(file);
+    }
+  };
+
+  const analyzePDF = async (file: File) => {
+    setAnalyzingPdf(true);
+    try {
+      // Read first 64KB of the PDF to check for text content
+      const slice = file.slice(0, 65536);
+      const text = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target?.result as string || '');
+        reader.readAsText(slice);
+      });
+      // PDFs with text content have 'BT' (Begin Text) markers in their binary structure
+      // This is a quick heuristic — not 100% but covers the vast majority of cases
+      const hasBT = (text.match(/BT\b/g) || []).length > 3;
+      const hasFontRef = text.includes('/Font') || text.includes('/Type /Page');
+      const hasText = hasBT || hasFontRef || text.includes('\n/Text');
+      // Estimate page count from the PDF xref table
+      const pageMatches = text.match(/\/Type\s*\/Page\b/g);
+      const pageCount = pageMatches ? pageMatches.length : 0;
+      setPdfAnalysis({ hasText, pageCount });
+    } catch {
+      setPdfAnalysis(null);
+    } finally {
+      setAnalyzingPdf(false);
     }
   };
 
@@ -350,6 +381,30 @@ export default function BookSubmit() {
                 />
               </label>
               {errors.manuscript && <p className="text-sm text-destructive">{errors.manuscript}</p>}
+              {/* PDF analysis result */}
+              {analyzingPdf && (
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  <span className="animate-spin">⏳</span> Analysing PDF...
+                </p>
+              )}
+              {!analyzingPdf && pdfAnalysis && (
+                <div className={`flex items-start gap-2 rounded-md px-3 py-2 text-xs ${
+                  pdfAnalysis.hasText
+                    ? 'bg-green-500/10 border border-green-500/20 text-green-700 dark:text-green-400'
+                    : 'bg-yellow-500/10 border border-yellow-500/20 text-yellow-700 dark:text-yellow-400'
+                }`}>
+                  {pdfAnalysis.hasText ? (
+                    <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0" />
+                  ) : (
+                    <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                  )}
+                  <span>
+                    {pdfAnalysis.hasText
+                      ? `✅ Text-based PDF detected${pdfAnalysis.pageCount > 0 ? ` (~${pdfAnalysis.pageCount} pages)` : ''}. Chapter extraction will work great!`
+                      : '⚠️ This PDF may be scanned (image-only). Chapter extraction requires a text-based PDF. Consider converting it with an OCR tool first.'}
+                  </span>
+                </div>
+              )}
             </div>
 
             <div className="pt-4">

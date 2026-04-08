@@ -10,7 +10,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { BookOpen, CheckCircle, XCircle, Clock, Download, Eye, Trash2, Users, Tag } from 'lucide-react';
+import { BookOpen, CheckCircle, XCircle, Clock, Download, Eye, Trash2, Users, Tag, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import AdminManagement from '@/components/admin/AdminManagement';
@@ -27,6 +27,12 @@ interface Submission {
   cover_image_url: string | null;
   manuscript_url: string | null;
   admin_feedback: string | null;
+  total_chapters: number | null;
+}
+
+interface ChapterCount {
+  book_id: string;
+  count: number;
 }
 
 const SUPER_ADMIN_EMAIL = 'priyamj1502@gmail.com';
@@ -43,6 +49,8 @@ export default function AdminDashboard() {
   const [feedback, setFeedback] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
   const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('pending');
+  const [chapterCounts, setChapterCounts] = useState<Record<string, number>>({});
+  const [reExtracting, setReExtracting] = useState<string | null>(null);
 
   useEffect(() => {
     if (!loading && !user) { navigate('/auth'); return; }
@@ -81,7 +89,66 @@ export default function AdminDashboard() {
     let query = supabase.from('book_submissions').select('*').order('submitted_at', { ascending: false });
     if (filter !== 'all') query = query.eq('status', filter);
     const { data } = await query;
-    if (data) setSubmissions(data as unknown as Submission[]);
+    if (data) {
+      setSubmissions(data as unknown as Submission[]);
+      // Load chapter counts for all submissions
+      const ids = (data as any[]).map((s) => s.id);
+      if (ids.length > 0) {
+        const { data: chapData } = await supabase
+          .from('book_chapters')
+          .select('book_id')
+          .in('book_id', ids);
+        if (chapData) {
+          const counts: Record<string, number> = {};
+          chapData.forEach((row: any) => {
+            counts[row.book_id] = (counts[row.book_id] || 0) + 1;
+          });
+          setChapterCounts(counts);
+        }
+      }
+    }
+  };
+
+  const reExtractChapters = async (sub: Submission) => {
+    setReExtracting(sub.id);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const response = await fetch(
+        `/api/extract-chapters`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session?.access_token}`,
+          },
+          body: JSON.stringify({ book_id: sub.id }),
+        }
+      );
+      const result = await response.json();
+      if (result.error === 'scanned_pdf') {
+        toast({
+          title: 'Scanned PDF detected',
+          description: result.message,
+          variant: 'destructive',
+        });
+      } else if (result.success) {
+        toast({
+          title: '✅ Chapters extracted!',
+          description: `${result.chapters_extracted} chapters saved for "${sub.title}".`,
+        });
+        await loadSubmissions();
+      } else {
+        toast({
+          title: 'Extraction failed',
+          description: result.error || 'Unknown error occurred.',
+          variant: 'destructive',
+        });
+      }
+    } catch (err: any) {
+      toast({ title: 'Re-extraction failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setReExtracting(null);
+    }
   };
 
   useEffect(() => {
@@ -278,6 +345,21 @@ export default function AdminDashboard() {
                               <span className="text-xs text-muted-foreground">
                                 Submitted {new Date(sub.submitted_at).toLocaleDateString()}
                               </span>
+                              {/* Chapter count badge */}
+                              {sub.status === 'approved' && (
+                                <Badge
+                                  variant="outline"
+                                  className={
+                                    chapterCounts[sub.id] > 0
+                                      ? 'bg-green-500/10 text-green-600 border-green-500/20'
+                                      : 'bg-red-500/10 text-red-600 border-red-500/20'
+                                  }
+                                >
+                                  {chapterCounts[sub.id] > 0
+                                    ? `${chapterCounts[sub.id]} chapters`
+                                    : '0 chapters — needs extraction'}
+                                </Badge>
+                              )}
                               {sub.manuscript_url && (
                                 <Button variant="ghost" size="sm" onClick={() => downloadManuscript(sub.manuscript_url!)} className="gap-1 h-7 text-xs">
                                   <Download className="w-3 h-3" />
@@ -288,6 +370,19 @@ export default function AdminDashboard() {
                                 <Button variant="outline" size="sm" onClick={() => { setSelectedSub(sub); setFeedback(''); }} className="gap-1 h-7 text-xs">
                                   <Eye className="w-3 h-3" />
                                   Review
+                                </Button>
+                              )}
+                              {/* Re-extract button for approved books */}
+                              {sub.status === 'approved' && sub.manuscript_url && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => reExtractChapters(sub)}
+                                  disabled={reExtracting === sub.id}
+                                  className="gap-1 h-7 text-xs"
+                                >
+                                  <RefreshCw className={`w-3 h-3 ${reExtracting === sub.id ? 'animate-spin' : ''}`} />
+                                  {reExtracting === sub.id ? 'Extracting...' : 'Re-extract Chapters'}
                                 </Button>
                               )}
                               <AlertDialog>
