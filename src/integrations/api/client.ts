@@ -97,7 +97,7 @@ class ApiClient {
     return data;
   }
 
-  async verify Email(token: string) {
+  async verifyEmail(token: string) {
     const response = await fetch(`${this.baseUrl}/auth/verify-email`, {
       method: "POST",
       headers: this.getHeaders(),
