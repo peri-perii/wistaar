@@ -64,6 +64,9 @@ tmp/
 temp/
 *.tmp
 
+# Generated output
+graphify-out/
+
 # Compiled files
 *.js
 *.js.map

@@ -27,6 +27,8 @@ const NotFound = lazy(() => import("@/pages/NotFound"));
 const TermsOfService = lazy(() => import("@/pages/TermsOfService"));
 const PrivacyPolicy = lazy(() => import("@/pages/PrivacyPolicy"));
 const CopyrightPolicy = lazy(() => import("@/pages/CopyrightPolicy"));
+const ForgotPassword = lazy(() => import("@/pages/ForgotPassword"));
+const ResetPassword = lazy(() => import("@/pages/ResetPassword"));
 
 const LazyFallback = () => (
   <div className="min-h-screen bg-background">
@@ -176,6 +178,22 @@ const AnimatedRoutes = () => {
               element={
                 <PageTransition>
                   <CopyrightPolicy />
+                </PageTransition>
+              }
+            />
+            <Route
+              path="/forgot-password"
+              element={
+                <PageTransition>
+                  <ForgotPassword />
+                </PageTransition>
+              }
+            />
+            <Route
+              path="/reset-password"
+              element={
+                <PageTransition>
+                  <ResetPassword />
                 </PageTransition>
               }
             />
