@@ -1,0 +1,6 @@
+wistaar\wistaar-backend-secure\QUICK_REFERENCE.md
+wistaar\wistaar-backend-secure\README.md
+wistaar\wistaar-backend-secure\SECURITY.md
+wistaar\favicon.png
+wistaar\public\favicon.png
+wistaar\public\placeholder.svg
