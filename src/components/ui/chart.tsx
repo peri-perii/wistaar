@@ -58,33 +58,68 @@ const ChartContainer = React.forwardRef<
 });
 ChartContainer.displayName = "Chart";
 
+/**
+ * Sanitize a CSS color value to prevent CSS injection.
+ * Accepts only values that CSS.supports considers valid for a custom property.
+ */
+function sanitizeCssColor(value: string): string | null {
+  if (typeof value !== "string") return null;
+  // Reject anything containing < > " ' backtick or semicolons (CSS injection / style-breaking chars)
+  if (/[<>"'`\\;{}]/.test(value)) return null;
+  // Validate via the browser's own CSS parser
+  if (typeof CSS !== "undefined" && CSS.supports) {
+    return CSS.supports("color", value) ? value : null;
+  }
+  // Fallback: only allow safe subset (hex, rgb, hsl, named colours, css vars)
+  return /^(#[0-9a-fA-F]{3,8}|rgba?\([^)]+\)|hsla?\([^)]+\)|[a-zA-Z]+|var\(--[^)]+\))$/.test(value)
+    ? value
+    : null;
+}
+
 const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
   const colorConfig = Object.entries(config).filter(([_, config]) => config.theme || config.color);
 
-  if (!colorConfig.length) {
-    return null;
-  }
+  React.useEffect(() => {
+    if (!colorConfig.length) return;
 
-  return (
-    <style
-      dangerouslySetInnerHTML={{
-        __html: Object.entries(THEMES)
-          .map(
-            ([theme, prefix]) => `
-${prefix} [data-chart=${id}] {
-${colorConfig
-  .map(([key, itemConfig]) => {
-    const color = itemConfig.theme?.[theme as keyof typeof itemConfig.theme] || itemConfig.color;
-    return color ? `  --color-${key}: ${color};` : null;
-  })
-  .join("\n")}
-}
-`,
-          )
-          .join("\n"),
-      }}
-    />
-  );
+    const styleId = `chart-style-${id}`;
+    let styleEl = document.getElementById(styleId) as HTMLStyleElement | null;
+    if (!styleEl) {
+      styleEl = document.createElement("style");
+      styleEl.id = styleId;
+      document.head.appendChild(styleEl);
+    }
+
+    // Build CSS safely — textContent is NOT an HTML sink, so no XSS risk.
+    const css = Object.entries(THEMES)
+      .map(([theme, prefix]) => {
+        const declarations = colorConfig
+          .map(([key, itemConfig]) => {
+            const rawColor =
+              itemConfig.theme?.[theme as keyof typeof itemConfig.theme] ||
+              itemConfig.color;
+            const safeColor = rawColor ? sanitizeCssColor(rawColor) : null;
+            // key comes from ChartConfig keys — sanitize to ident chars only
+            const safeKey = key.replace(/[^a-zA-Z0-9_-]/g, "");
+            return safeColor ? `  --color-${safeKey}: ${safeColor};` : null;
+          })
+          .filter(Boolean)
+          .join("\n");
+        return `${prefix} [data-chart=${id}] {\n${declarations}\n}`;
+      })
+      .join("\n");
+
+    // textContent assignment is safe — the browser treats this as text, not HTML.
+    styleEl.textContent = css;
+
+    return () => {
+      styleEl?.remove();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, JSON.stringify(colorConfig)]);
+
+  // No DOM output needed; styles are injected via the effect above.
+  return null;
 };
 
 const ChartTooltip = RechartsPrimitive.Tooltip;
