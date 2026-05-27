@@ -25,6 +25,21 @@ export default function WistiesManagement() {
   useEffect(() => {
     loadSettings();
     loadTransactions();
+
+    // Subscribe to real-time changes on platform settings and wisties transactions
+    const wistiesSub = supabase
+      .channel('wisties-admin-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'platform_settings' }, () => {
+        loadSettings();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'wisties_transactions' }, () => {
+        loadTransactions();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(wistiesSub);
+    };
   }, []);
 
   const loadSettings = async () => {
