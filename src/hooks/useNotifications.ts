@@ -22,8 +22,11 @@ export function useNotifications() {
   useEffect(() => {
     if (!user) return;
 
+    // Generate a unique channel name per-mount to prevent name collisions
+    // during React 18 Strict Mode double-mounts.
+    const channelId = Math.random().toString(36).slice(2, 9);
     const channel = supabase
-      .channel(`notifications:${user.id}`)
+      .channel(`notifications:${user.id}-${channelId}`)
       .on(
         "postgres_changes",
         {

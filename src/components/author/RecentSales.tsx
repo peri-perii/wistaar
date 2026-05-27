@@ -70,9 +70,10 @@ export default function RecentSales() {
 
     fetchRecentSales();
     
-    // Subscribe to real-time updates
-    const subscription = supabase
-      .channel('recent_sales')
+    // Subscribe to real-time updates with a unique channel name per-mount
+    const channelId = Math.random().toString(36).slice(2, 9);
+    const channel = supabase
+      .channel(`recent_sales-${channelId}`)
       .on(
         'postgres_changes',
         {
@@ -87,7 +88,7 @@ export default function RecentSales() {
       .subscribe();
 
     return () => {
-      subscription.unsubscribe();
+      supabase.removeChannel(channel);
     };
   }, [user]);
 

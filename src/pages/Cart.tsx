@@ -11,7 +11,11 @@ import { useCart, useRemoveFromCart } from "@/hooks/useCart";
 import { useApprovedBooks } from "@/hooks/useApprovedBooks";
 import { useInitiatePayment } from "@/hooks/usePurchases";
 import { useCoupon } from "@/hooks/useCoupon";
-import { useState } from "react";
+import { calculatePriceBreakdown } from "@/lib/pricing";
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 export default function Cart() {
   const { user, loading: authLoading } = useAuth();
@@ -20,6 +24,17 @@ export default function Cart() {
   const removeFromCart = useRemoveFromCart();
   const initiatePayment = useInitiatePayment();
   const [payingBookId, setPayingBookId] = useState<string | null>(null);
+  const [wistiesBalance, setWistiesBalance] = useState<number>(0);
+  const [useWisties, setUseWisties] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    const fetchBalance = async () => {
+      const { data } = await supabase.from('wisties_balance').select('balance').eq('user_id', user.id).maybeSingle();
+      if (data) setWistiesBalance(data.balance);
+    };
+    fetchBalance();
+  }, [user]);
 
   if (!authLoading && !user) {
     return <Navigate to="/auth" replace />;
@@ -79,6 +94,23 @@ export default function Cart() {
 
           {!isLoading && cartBooks.length > 0 && (
             <div className="space-y-4">
+              <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg border">
+                <div className="space-y-0.5">
+                  <Label htmlFor="wisties-toggle" className="text-base font-medium">
+                    Use Wisties balance
+                  </Label>
+                  <p className="text-sm text-muted-foreground">
+                    You have ₹{wistiesBalance} available
+                  </p>
+                </div>
+                <Switch
+                  id="wisties-toggle"
+                  checked={useWisties}
+                  onCheckedChange={setUseWisties}
+                  disabled={wistiesBalance <= 0}
+                />
+              </div>
+
               {cartBooks.map((book: any) => (
                 <CartBookItem
                   key={book.id}
@@ -87,6 +119,9 @@ export default function Cart() {
                   setPayingBookId={setPayingBookId}
                   initiatePayment={initiatePayment}
                   removeFromCart={removeFromCart}
+                  useWisties={useWisties}
+                  wistiesBalance={wistiesBalance}
+                  onWistiesUpdate={(newBalance) => setWistiesBalance(newBalance)}
                 />
               ))}
 
@@ -97,6 +132,9 @@ export default function Cart() {
                   {total}
                 </span>
               </div>
+              <p className="text-xs text-center text-muted-foreground pt-4">
+                <Link to="/refund-policy" className="hover:underline">Wisties Refund Policy</Link>: We offer full store credit refunds within 24 hours. No cash refunds.
+              </p>
             </div>
           )}
         </div>
@@ -113,12 +151,18 @@ function CartBookItem({
   setPayingBookId,
   initiatePayment,
   removeFromCart,
+  useWisties,
+  wistiesBalance,
+  onWistiesUpdate,
 }: {
   book: any;
   payingBookId: string | null;
   setPayingBookId: (id: string | null) => void;
   initiatePayment: ReturnType<typeof useInitiatePayment>;
   removeFromCart: ReturnType<typeof useRemoveFromCart>;
+  useWisties: boolean;
+  wistiesBalance: number;
+  onWistiesUpdate: (val: number) => void;
 }) {
   const {
     couponCode, setCouponCode,
@@ -130,12 +174,34 @@ function CartBookItem({
   const handleBuy = async () => {
     setPayingBookId(book.id);
     try {
-      await initiatePayment.mutateAsync({ bookId: book.id, bookTitle: book.title, amount: finalAmount });
-      if (appliedCoupon) await incrementUsage(appliedCoupon.id);
-      removeFromCart.mutate(book.id);
-      toast.success("Payment successful! Book added to your library.");
-    } catch {
-      toast.error("Payment failed. Please try again.");
+      if (useWisties) {
+        if (wistiesBalance < finalAmount) {
+          toast.error("Insufficient Wisties balance. Please disable Wisties to pay with card/UPI.");
+          setPayingBookId(null);
+          return;
+        }
+
+        const { error } = await supabase.rpc('purchase_book_with_wisties', {
+          p_book_id: book.id,
+          p_amount: finalAmount,
+          p_book_title: book.title
+        });
+
+        if (error) throw error;
+
+        onWistiesUpdate(wistiesBalance - finalAmount);
+        if (appliedCoupon) await incrementUsage(appliedCoupon.id);
+        removeFromCart.mutate(book.id);
+        toast.success("Purchased with Wisties! Book added to your library.");
+      } else {
+        await initiatePayment.mutateAsync({ bookId: book.id, bookTitle: book.title, amount: finalAmount });
+        if (appliedCoupon) await incrementUsage(appliedCoupon.id);
+        removeFromCart.mutate(book.id);
+        toast.success("Payment successful! Book added to your library.");
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Payment failed. Please try again.");
     } finally {
       setPayingBookId(null);
     }
@@ -222,10 +288,15 @@ function CartBookItem({
             {payingBookId === book.id ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
             ) : (
-              <>Buy {appliedCoupon ? `₹${finalAmount.toFixed(0)}` : `₹${book.priceAmount}`}</>
+              <>
+                {useWisties ? 'Pay Wisties' : 'Buy'} {appliedCoupon ? `₹${finalAmount.toFixed(0)}` : `₹${book.priceAmount}`}
+              </>
             )}
           </Button>
         </div>
+        <p className="text-[11px] text-muted-foreground mt-1">
+          ₹{finalAmount.toFixed(2)} · Includes ₹{calculatePriceBreakdown(finalAmount).platformFee.toFixed(2)} platform fee that keeps Wistaar running
+        </p>
         {couponError && <p className="text-xs text-destructive">{couponError}</p>}
         {appliedCoupon && (
           <div className="flex items-center gap-1.5 text-xs text-primary">

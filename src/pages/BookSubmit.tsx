@@ -66,8 +66,11 @@ export default function BookSubmit() {
   const handleManuscriptChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (!file.type.includes('pdf')) {
-        setErrors(prev => ({ ...prev, manuscript: 'Only PDF files are accepted' }));
+      const isPdf = file.type.includes('pdf') || file.name.endsWith('.pdf');
+      const isDocx = file.type.includes('word') || file.type.includes('officedocument') || file.name.endsWith('.docx');
+
+      if (!isPdf && !isDocx) {
+        setErrors(prev => ({ ...prev, manuscript: 'Only PDF or DOCX files are accepted' }));
         return;
       }
       if (file.size > 50 * 1024 * 1024) {
@@ -77,27 +80,28 @@ export default function BookSubmit() {
       setManuscriptFile(file);
       setPdfAnalysis(null);
       setErrors(prev => { const { manuscript, ...rest } = prev; return rest; });
-      // Analyze PDF in background
-      analyzePDF(file);
+
+      if (isPdf) {
+        analyzePDF(file);
+      } else {
+        // Word documents are XML/text based by design and extract beautifully
+        setPdfAnalysis({ hasText: true, pageCount: 0 });
+      }
     }
   };
 
   const analyzePDF = async (file: File) => {
     setAnalyzingPdf(true);
     try {
-      // Read first 64KB of the PDF to check for text content
       const slice = file.slice(0, 65536);
       const text = await new Promise<string>((resolve) => {
         const reader = new FileReader();
         reader.onload = (e) => resolve(e.target?.result as string || '');
         reader.readAsText(slice);
       });
-      // PDFs with text content have 'BT' (Begin Text) markers in their binary structure
-      // This is a quick heuristic — not 100% but covers the vast majority of cases
       const hasBT = (text.match(/BT\b/g) || []).length > 3;
       const hasFontRef = text.includes('/Font') || text.includes('/Type /Page');
       const hasText = hasBT || hasFontRef || text.includes('\n/Text');
-      // Estimate page count from the PDF xref table
       const pageMatches = text.match(/\/Type\s*\/Page\b/g);
       const pageCount = pageMatches ? pageMatches.length : 0;
       setPdfAnalysis({ hasText, pageCount });
@@ -156,20 +160,36 @@ export default function BookSubmit() {
       if (manuscriptError) throw new Error('Failed to upload manuscript');
       manuscriptUrl = manuscriptPath; // Store path, not public URL (private bucket)
 
-      // Create submission record
-      const { error: insertError } = await supabase.from('book_submissions').insert({
-        author_id: user!.id,
-        title: title.trim(),
-        description: description.trim(),
-        genre,
-        cover_image_url: coverUrl,
-        manuscript_url: manuscriptUrl,
-        status: 'pending',
-        price: isPremium ? parseFloat(price) : 0,
-        free_chapters: isPremium ? freeChapters : 0,
-      });
+      // Create submission record and fetch its details
+      const { data: newBook, error: insertError } = await supabase
+        .from('book_submissions')
+        .insert({
+          author_id: user!.id,
+          title: title.trim(),
+          description: description.trim(),
+          genre,
+          cover_image_url: coverUrl,
+          manuscript_url: manuscriptUrl,
+          status: 'pending',
+          price: isPremium ? parseFloat(price) : 0,
+          free_chapters: isPremium ? freeChapters : 0,
+        })
+        .select()
+        .single();
 
       if (insertError) throw new Error('Failed to create submission');
+
+      // Trigger automatic chapter extraction immediately so the author can preview it
+      if (newBook) {
+        try {
+          // Invoke the Deno Edge Function in the background
+          supabase.functions.invoke('extract-chapters', {
+            body: { book_id: newBook.id },
+          }).catch(err => console.warn('Background extraction promise rejected:', err));
+        } catch (extractErr) {
+          console.warn('Initial extraction failed, but submission completed:', extractErr);
+        }
+      }
 
       // Trigger email notification to admin
       try {

@@ -10,11 +10,12 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { BookOpen, CheckCircle, XCircle, Clock, Download, Eye, Trash2, Users, Tag, RefreshCw } from 'lucide-react';
+import { BookOpen, CheckCircle, XCircle, Clock, Download, Eye, Trash2, Users, Tag, RefreshCw, IndianRupee } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import AdminManagement from '@/components/admin/AdminManagement';
+import { AdminManagement } from '@/components/admin/AdminManagement.realtime';
 import CouponManagement from '@/components/admin/CouponManagement';
+import WistiesManagement from '@/components/admin/WistiesManagement';
 
 interface Submission {
   id: string;
@@ -114,18 +115,19 @@ export default function AdminDashboard() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const response = await fetch(
-        `/api/extract-chapters`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-chapters`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${session?.access_token}`,
+            'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
           },
           body: JSON.stringify({ book_id: sub.id }),
         }
       );
       const result = await response.json();
-      if (result.error === 'scanned_pdf') {
+      if (result.error === 'scanned_pdf' || result.error === 'scanned_or_empty') {
         toast({
           title: 'Scanned PDF detected',
           description: result.message,
@@ -197,7 +199,7 @@ export default function AdminDashboard() {
               headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${session?.access_token}`,
-                'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+                'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
               },
               body: JSON.stringify({ book_id: selectedSub.id }),
             }
@@ -278,6 +280,10 @@ export default function AdminDashboard() {
               <TabsTrigger value="coupons" className="gap-2">
                 <Tag className="w-4 h-4" />
                 Coupons
+              </TabsTrigger>
+              <TabsTrigger value="wisties" className="gap-2">
+                <IndianRupee className="w-4 h-4" />
+                Wisties
               </TabsTrigger>
               {isSuperAdmin && (
                 <TabsTrigger value="admins" className="gap-2">
@@ -416,6 +422,11 @@ export default function AdminDashboard() {
             {/* ── Coupons Tab ── */}
             <TabsContent value="coupons">
               <CouponManagement />
+            </TabsContent>
+
+            {/* ── Wisties Tab ── */}
+            <TabsContent value="wisties">
+              <WistiesManagement />
             </TabsContent>
 
             {/* ── Admins Tab (super admin only) ── */}

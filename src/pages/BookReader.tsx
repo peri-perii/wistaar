@@ -22,11 +22,47 @@ export default function BookReader() {
   const { saveProgress } = useReadingProgress(id);
   const flipBookRef = useRef<PageFlipBookRef>(null);
 
-  const book = books?.find((b) => b.id === id);
+  const [localBook, setLocalBook] = useState<any>(null);
+
+  useEffect(() => {
+    if (!id || books?.some((b) => b.id === id)) return;
+    
+    // Fetch details dynamically from book_submissions for draft/preview access
+    supabase
+      .from("book_submissions")
+      .select("*")
+      .eq("id", id)
+      .single()
+      .then(async ({ data: s }) => {
+        if (s) {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("display_name")
+            .eq("user_id", s.author_id)
+            .single();
+
+          setLocalBook({
+            id: s.id,
+            title: s.title,
+            author: profile?.display_name || "Author",
+            genre: s.genre,
+            price: s.price > 0 ? "premium" : "free",
+            priceAmount: Number(s.price),
+            freeChapters: s.free_chapters,
+            coverImageUrl: s.cover_image_url,
+            description: s.description,
+          });
+        }
+      });
+  }, [id, books]);
+
+  const book = books?.find((b) => b.id === id) || localBook;
 
   const isPremium = book?.price === "premium";
   const freeChapterLimit = book?.freeChapters ?? 3;
-  const isUnlocked = !isPremium || !!hasPurchased;
+  // If the current logged-in user is the author of this book, unlock it fully for preview
+  const isAuthor = localBook || books?.find((b) => b.id === id)?.author === user?.name;
+  const isUnlocked = !isPremium || !!hasPurchased || !!isAuthor;
 
   const chapters = useMemo(() => {
     if (!allChapters) return undefined;

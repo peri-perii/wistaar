@@ -18,6 +18,7 @@ import { useCart, useAddToCart } from "@/hooks/useCart";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { useCoupon } from "@/hooks/useCoupon";
+import { calculatePriceBreakdown } from "@/lib/pricing";
 
 export default function BookDetail() {
   const { id } = useParams<{ id: string }>();
@@ -393,6 +394,10 @@ export default function BookDetail() {
                         </Button>
                       </Link>
                     </div>
+                    
+                    <p className="text-xs text-muted-foreground text-center pt-2">
+                      ₹{finalAmount.toFixed(2)} · Includes ₹{calculatePriceBreakdown(finalAmount).platformFee.toFixed(2)} platform fee that keeps Wistaar running
+                    </p>
                   </div>
                 )}
               </div>

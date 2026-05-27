@@ -224,7 +224,7 @@ export default function AuthorDashboard() {
                             <p className="text-sm text-muted-foreground mb-2">{sub.genre}</p>
                             <p className="text-sm text-muted-foreground truncate">{sub.description}</p>
                           </div>
-                          <div className="flex flex-col items-end gap-2">
+                          <div className="flex flex-col items-end gap-2 shrink-0">
                             <Badge variant="outline" className={config.color}>
                               <StatusIcon className="w-3 h-3 mr-1" />
                               {config.label}
@@ -232,6 +232,12 @@ export default function AuthorDashboard() {
                             <span className="text-xs text-muted-foreground">
                               {new Date(sub.submitted_at).toLocaleDateString()}
                             </span>
+                            <Link to={`/reader/${sub.id}`}>
+                              <Button variant="outline" size="sm" className="gap-1 h-7 text-xs border-accent/20 hover:bg-accent/5 hover:text-accent">
+                                <BookOpen className="w-3.5 h-3.5" />
+                                Preview Layout
+                              </Button>
+                            </Link>
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
                                 <Button variant="ghost" size="sm" className="gap-1 h-7 text-xs text-destructive hover:text-destructive">

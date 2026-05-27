@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { usePurchases } from "@/hooks/usePurchases";
@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { User, Calendar, Loader2, Camera, Key, Eye, EyeOff, Trash2, Download } from "lucide-react";
+import { User, Calendar, Loader2, Camera, Key, Eye, EyeOff, Trash2, Download, ArrowLeft, AtSign, CheckCircle2, XCircle } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -34,7 +34,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 interface Profile {
   display_name: string | null;
   avatar_url: string | null;
+  username: string | null;
 }
+
+const USERNAME_REGEX = /^[a-zA-Z0-9_]{3,30}$/;
 
 interface Book {
   id: string;
@@ -48,12 +51,18 @@ const Profile = () => {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [profile, setProfile] = useState<Profile>({ display_name: null, avatar_url: null });
+  const [profile, setProfile] = useState<Profile>({ display_name: null, avatar_url: null, username: null });
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [displayName, setDisplayName] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
+  const [username, setUsername] = useState("");
+  const [usernameError, setUsernameError] = useState<string | null>(null);
+  const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
+  const [isCheckingUsername, setIsCheckingUsername] = useState(false);
+  const usernameTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [wistiesBalance, setWistiesBalance] = useState<number | null>(null);
   const [now, setNow] = useState(new Date());
 
   // Password change states
@@ -88,7 +97,7 @@ const Profile = () => {
     const fetchProfile = async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("display_name, avatar_url")
+        .select("display_name, avatar_url, username")
         .eq("user_id", user.id)
         .maybeSingle();
 
@@ -96,7 +105,18 @@ const Profile = () => {
         setProfile(data);
         setDisplayName(data.display_name ?? "");
         setAvatarUrl(data.avatar_url ?? "");
+        setUsername(data.username ?? "");
       }
+
+      // Fetch Wisties balance
+      const { data: wistiesData } = await supabase
+        .from("wisties_balance")
+        .select("balance")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      
+      setWistiesBalance(wistiesData?.balance ?? 0);
+
       setIsLoading(false);
     };
 
@@ -281,8 +301,82 @@ Thank you for your purchase!
     document.body.removeChild(element);
   };
 
+  // Debounced username availability check
+  const checkUsernameAvailability = useCallback((value: string) => {
+    if (usernameTimerRef.current) clearTimeout(usernameTimerRef.current);
+    
+    // If same as current saved username, no need to check
+    if (value === (profile.username ?? "")) {
+      setUsernameError(null);
+      setUsernameAvailable(null);
+      setIsCheckingUsername(false);
+      return;
+    }
+
+    // If empty, clear state
+    if (!value) {
+      setUsernameError(null);
+      setUsernameAvailable(null);
+      setIsCheckingUsername(false);
+      return;
+    }
+
+    // Validate format first
+    if (!USERNAME_REGEX.test(value)) {
+      setUsernameError(value.length < 3 ? "Username must be at least 3 characters" : value.length > 30 ? "Username must be 30 characters or less" : "Only letters, numbers, and underscores allowed");
+      setUsernameAvailable(null);
+      setIsCheckingUsername(false);
+      return;
+    }
+
+    setUsernameError(null);
+    setIsCheckingUsername(true);
+
+    usernameTimerRef.current = setTimeout(async () => {
+      try {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("user_id")
+          .ilike("username", value)
+          .maybeSingle();
+
+        if (error) throw error;
+
+        if (data && data.user_id !== user?.id) {
+          setUsernameAvailable(false);
+          setUsernameError("Username already exists");
+        } else {
+          setUsernameAvailable(true);
+          setUsernameError(null);
+        }
+      } catch {
+        setUsernameError("Could not check availability");
+        setUsernameAvailable(null);
+      } finally {
+        setIsCheckingUsername(false);
+      }
+    }, 400);
+  }, [profile.username, user?.id]);
+
+  const handleUsernameChange = (value: string) => {
+    setUsername(value);
+    checkUsernameAvailability(value);
+  };
+
   const handleSave = async () => {
     if (!user) return;
+
+    // Validate username before saving
+    const trimmedUsername = username.trim() || null;
+    if (trimmedUsername && !USERNAME_REGEX.test(trimmedUsername)) {
+      toast({ title: "Invalid username", description: "Username must be 3-30 characters, letters/numbers/underscores only.", variant: "destructive" });
+      return;
+    }
+    if (usernameError) {
+      toast({ title: "Username issue", description: usernameError, variant: "destructive" });
+      return;
+    }
+
     setIsSaving(true);
 
     const { error } = await supabase
@@ -290,23 +384,32 @@ Thank you for your purchase!
       .update({
         display_name: displayName || null,
         avatar_url: avatarUrl || null,
+        username: trimmedUsername,
       })
       .eq("user_id", user.id);
 
     setIsSaving(false);
 
     if (error) {
-      toast({ title: "Error", description: "Failed to update profile.", variant: "destructive" });
+      if (error.message?.includes('chk_username_format') || error.message?.includes('idx_profiles_username_lower')) {
+        toast({ title: "Username unavailable", description: "This username is already taken or invalid.", variant: "destructive" });
+      } else {
+        toast({ title: "Error", description: "Failed to update profile.", variant: "destructive" });
+      }
     } else {
-      setProfile({ display_name: displayName || null, avatar_url: avatarUrl || null });
+      setProfile({ display_name: displayName || null, avatar_url: avatarUrl || null, username: trimmedUsername });
+      setUsernameAvailable(null); // Reset availability state after save
       toast({ title: "Profile updated", description: "Your changes have been saved." });
     }
   };
 
   const initials = (displayName || user?.email || "U").slice(0, 2).toUpperCase();
+  const usernameChanged = username !== (profile.username ?? "");
+  const hasUsernameIssue = usernameChanged && (!!usernameError || isCheckingUsername);
   const hasChanges =
     displayName !== (profile.display_name ?? "") ||
-    avatarUrl !== (profile.avatar_url ?? "");
+    avatarUrl !== (profile.avatar_url ?? "") ||
+    usernameChanged;
 
   if (authLoading || isLoading) {
     return (
@@ -325,6 +428,23 @@ Thank you for your purchase!
             <h1 className="text-3xl font-serif mb-1">Profile</h1>
             <p className="text-muted-foreground text-sm">Manage your account details</p>
           </div>
+
+          <Card className="bg-gradient-to-r from-muted/50 to-muted/10 border-[#c97b63]/20 shadow-sm cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate('/profile/wisties')}>
+            <CardContent className="p-6 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground mb-1">Store Credit</p>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-2xl font-bold font-serif text-[#8b4530]">
+                    ₹{wistiesBalance !== null ? wistiesBalance : '...'}
+                  </span>
+                  <span className="text-sm font-medium">Wisties</span>
+                </div>
+              </div>
+              <div className="flex items-center text-[#c97b63] font-medium text-sm">
+                Wisties balance <ArrowLeft className="w-4 h-4 ml-1 rotate-180" />
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Avatar with upload */}
           <div className="flex items-center gap-4">
@@ -356,6 +476,9 @@ Thank you for your purchase!
             </div>
             <div>
               <p className="font-medium">{displayName || "No name set"}</p>
+              {profile.username && (
+                <p className="text-sm text-primary font-medium">@{profile.username}</p>
+              )}
               <p className="text-sm text-muted-foreground">{user?.email}</p>
             </div>
           </div>
@@ -387,6 +510,44 @@ Thank you for your purchase!
                     />
                   </div>
 
+                  <div className="space-y-2">
+                    <Label htmlFor="username" className="flex items-center gap-2">
+                      <AtSign className="w-4 h-4 text-muted-foreground" />
+                      Username
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        id="username"
+                        value={username}
+                        onChange={(e) => handleUsernameChange(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
+                        placeholder="your_username"
+                        maxLength={30}
+                        className={`pr-10 ${
+                          usernameError ? 'border-destructive focus-visible:ring-destructive' :
+                          usernameAvailable === true ? 'border-green-500 focus-visible:ring-green-500' : ''
+                        }`}
+                      />
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                        {isCheckingUsername && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
+                        {!isCheckingUsername && usernameAvailable === true && (
+                          <CheckCircle2 className="w-4 h-4 text-green-500" />
+                        )}
+                        {!isCheckingUsername && usernameError && username && (
+                          <XCircle className="w-4 h-4 text-destructive" />
+                        )}
+                      </div>
+                    </div>
+                    {usernameError && username && (
+                      <p className="text-xs text-destructive">{usernameError}</p>
+                    )}
+                    {!isCheckingUsername && usernameAvailable === true && (
+                      <p className="text-xs text-green-600">Username available</p>
+                    )}
+                    {!username && !usernameError && (
+                      <p className="text-xs text-muted-foreground">3-30 characters, letters, numbers, and underscores only</p>
+                    )}
+                  </div>
+
                   <div className="flex items-center justify-between pt-2">
                     <p className="text-xs text-muted-foreground flex items-center gap-1">
                       <Calendar className="w-3 h-3" />
@@ -394,7 +555,7 @@ Thank you for your purchase!
                       {" · "}
                       {now.toLocaleTimeString()}
                     </p>
-                    <Button onClick={handleSave} disabled={isSaving || !hasChanges}>
+                    <Button onClick={handleSave} disabled={isSaving || !hasChanges || hasUsernameIssue}>
                       {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                       Save Changes
                     </Button>

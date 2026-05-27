@@ -6,14 +6,58 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+import JSZip from "https://esm.sh/jszip@3.10.1";
+
+// ─── DOCX Text Extraction ────────────────────────────────────────────────────
+// Extracts clean paragraph text from a Word Document ArrayBuffer using JSZip.
+async function extractTextFromDocx(docxBytes: ArrayBuffer): Promise<string> {
+  try {
+    const zip = await JSZip.loadAsync(docxBytes);
+    const docXmlFile = zip.file("word/document.xml");
+    if (!docXmlFile) {
+      throw new Error("Invalid DOCX: missing word/document.xml");
+    }
+    const xmlText = await docXmlFile.async("text");
+    
+    // Group paragraphs (<w:p>) and grab their clean text content (<w:t>)
+    const paragraphs: string[] = [];
+    const pRegex = /<w:p(?:\s+[^>]*)*>([\s\S]*?)<\/w:p>/g;
+    let pMatch;
+    
+    while ((pMatch = pRegex.exec(xmlText)) !== null) {
+      const pContent = pMatch[1];
+      const tRegex = /<w:t(?:\s+[^>]*)*>([\s\S]*?)<\/w:t>/g;
+      let tMatch;
+      let paragraphText = "";
+      
+      while ((tMatch = tRegex.exec(pContent)) !== null) {
+        paragraphText += tMatch[1];
+      }
+      
+      if (paragraphText.trim()) {
+        const cleanText = paragraphText
+          .replace(/&amp;/g, "&")
+          .replace(/&lt;/g, "<")
+          .replace(/&gt;/g, ">")
+          .replace(/&quot;/g, '"')
+          .replace(/&apos;/g, "'");
+        paragraphs.push(cleanText);
+      }
+    }
+    
+    return paragraphs.join("\n\n");
+  } catch (err) {
+    console.error("DOCX extraction failed:", err);
+    throw err;
+  }
+}
+
 // ─── PDF Text Extraction ─────────────────────────────────────────────────────
-// Extracts raw text from a PDF ArrayBuffer using a lightweight pure-JS parser.
-// Works for all text-based PDFs (the vast majority of book manuscripts).
+// Extracts clean, perfectly aligned text by grouping letters into lines based on Y-coordinates,
+// then sorting left-to-right (X-coordinates) to prevent word scrambling.
 async function extractTextFromPDF(pdfBytes: ArrayBuffer): Promise<string> {
   try {
-    // Use pdfjs-dist for reliable cross-platform PDF text extraction
     const pdfjsLib = await import("https://esm.sh/pdfjs-dist@4.4.168/legacy/build/pdf.mjs");
-
     const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(pdfBytes) }).promise;
     const numPages = pdf.numPages;
     const pageTexts: string[] = [];
@@ -21,17 +65,62 @@ async function extractTextFromPDF(pdfBytes: ArrayBuffer): Promise<string> {
     for (let i = 1; i <= numPages; i++) {
       const page = await pdf.getPage(i);
       const textContent = await page.getTextContent();
-      const pageText = textContent.items
-        .map((item: any) => item.str || "")
-        .join(" ")
-        .replace(/\s{3,}/g, "\n\n") // large gaps = paragraph breaks
-        .trim();
+      const linesMap: Record<string, any[]> = {};
+
+      // 1. Group text items by Y-coordinate with a tight threshold (2 units)
+      for (const item of textContent.items) {
+        if (!item.str) continue;
+        const y = Math.round(item.transform[5]);
+        let foundLineY = Object.keys(linesMap).find(
+          (lineY) => Math.abs(Number(lineY) - y) <= 2
+        );
+
+        if (!foundLineY) {
+          foundLineY = String(y);
+          linesMap[foundLineY] = [];
+        }
+        linesMap[foundLineY].push(item);
+      }
+
+      // 2. Sort Y-coordinates vertically from top to bottom
+      const sortedYKeys = Object.keys(linesMap)
+        .map(Number)
+        .sort((a, b) => b - a);
+
+      const pageLines: string[] = [];
+
+      // 3. For each horizontal line, sort items horizontally left-to-right
+      for (const yKey of sortedYKeys) {
+        const lineItems = linesMap[String(yKey)];
+        lineItems.sort((a, b) => a.transform[4] - b.transform[4]);
+
+        let lineText = "";
+        let prevXEnd = 0;
+
+        for (const item of lineItems) {
+          const itemText = item.str || "";
+          const x = item.transform[4];
+
+          // Add a space if there is a gap, but keep compound words touching
+          if (lineText && x - prevXEnd > 2) {
+            lineText += " ";
+          }
+          lineText += itemText;
+          prevXEnd = x + (item.width || 0);
+        }
+
+        if (lineText.trim()) {
+          pageLines.push(lineText.trim());
+        }
+      }
+
+      const pageText = pageLines.join("\n").replace(/\s{3,}/g, "\n\n").trim();
       if (pageText) pageTexts.push(pageText);
     }
 
     return pageTexts.join("\n\n");
   } catch (err) {
-    console.error("pdfjs extraction failed, trying fallback:", err);
+    console.error("pdfjs extraction failed:", err);
     return "";
   }
 }
@@ -228,18 +317,25 @@ Deno.serve(async (req) => {
       return respond({ error: "Could not download manuscript from storage" }, 500);
     }
 
-    const pdfBytes = await fileData.arrayBuffer();
-    console.log(`[extract-chapters] Downloaded PDF: ${(pdfBytes.byteLength / 1024).toFixed(0)} KB`);
+    const fileBytes = await fileData.arrayBuffer();
+    const isDocx = book.manuscript_url.toLowerCase().endsWith(".docx");
+    console.log(`[extract-chapters] Downloaded manuscript: ${(fileBytes.byteLength / 1024).toFixed(0)} KB (Format: ${isDocx ? "DOCX" : "PDF"})`);
 
-    // ── 3. Extract text from PDF ──────────────────────────────────────────────
-    const fullText = await extractTextFromPDF(pdfBytes);
+    // ── 3. Extract text ──────────────────────────────────────────────────────
+    let fullText = "";
+    if (isDocx) {
+      fullText = await extractTextFromDocx(fileBytes);
+    } else {
+      fullText = await extractTextFromPDF(fileBytes);
+    }
     console.log(`[extract-chapters] Extracted text: ${fullText.length} characters`);
 
     if (fullText.length < 300) {
-      // PDF has no extractable text — likely a scanned/image PDF
       return respond({
-        error: "scanned_pdf",
-        message: "This PDF appears to be a scanned document (image-only). Please upload a text-based PDF for chapter extraction to work. You can use an OCR tool to convert scanned PDFs to text.",
+        error: "scanned_or_empty",
+        message: isDocx 
+          ? "This document appears to have no readable text. Please ensure it contains actual word document paragraphs."
+          : "This PDF appears to be a scanned document (image-only). Please upload a text-based PDF or a Word document for chapter extraction to work.",
       }, 422);
     }
 
@@ -248,7 +344,7 @@ Deno.serve(async (req) => {
     console.log(`[extract-chapters] Detected ${chapters.length} chapters via regex`);
 
     if (chapters.length === 0) {
-      return respond({ error: "Could not detect any content in the PDF" }, 500);
+      return respond({ error: "Could not detect any chapter divisions in the manuscript" }, 500);
     }
 
     // ── 5. Enhance titles with AI (lightweight text call, not image) ──────────

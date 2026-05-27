@@ -364,6 +364,30 @@ export type Database = {
         }
         Relationships: []
       }
+      platform_settings: {
+        Row: {
+          id: number
+          platform_fee_label: string
+          platform_fee_percent: number
+          updated_at: string | null
+          wisties_refund_window_hours: number
+        }
+        Insert: {
+          id?: number
+          platform_fee_label?: string
+          platform_fee_percent?: number
+          updated_at?: string | null
+          wisties_refund_window_hours?: number
+        }
+        Update: {
+          id?: number
+          platform_fee_label?: string
+          platform_fee_percent?: number
+          updated_at?: string | null
+          wisties_refund_window_hours?: number
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -372,6 +396,7 @@ export type Database = {
           display_name: string | null
           id: string
           updated_at: string
+          username: string | null
           user_id: string
         }
         Insert: {
@@ -381,6 +406,7 @@ export type Database = {
           display_name?: string | null
           id?: string
           updated_at?: string
+          username?: string | null
           user_id: string
         }
         Update: {
@@ -390,6 +416,7 @@ export type Database = {
           display_name?: string | null
           id?: string
           updated_at?: string
+          username?: string | null
           user_id?: string
         }
         Relationships: []
@@ -474,6 +501,54 @@ export type Database = {
           },
         ]
       }
+      wisties_balance: {
+        Row: {
+          balance: number
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          balance?: number
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          balance?: number
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      wisties_transactions: {
+        Row: {
+          amount: number
+          created_at: string | null
+          description: string
+          id: string
+          reference_id: string | null
+          type: Database["public"]["Enums"]["wisties_transaction_type"]
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string | null
+          description: string
+          id?: string
+          reference_id?: string | null
+          type: Database["public"]["Enums"]["wisties_transaction_type"]
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          description?: string
+          id?: string
+          reference_id?: string | null
+          type?: Database["public"]["Enums"]["wisties_transaction_type"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -489,8 +564,36 @@ export type Database = {
         }
         Returns: undefined
       }
+      admin_adjust_wisties: {
+        Args: {
+          p_user_id: string
+          p_amount: number
+          p_desc: string
+        }
+        Returns: undefined
+      }
+      credit_wisties: {
+        Args: {
+          p_user_id: string
+          p_amount: number
+          p_type: Database["public"]["Enums"]["wisties_transaction_type"]
+          p_ref: string
+          p_desc: string
+        }
+        Returns: undefined
+      }
+      debit_wisties: {
+        Args: {
+          p_user_id: string
+          p_amount: number
+          p_type: Database["public"]["Enums"]["wisties_transaction_type"]
+          p_ref: string
+          p_desc: string
+        }
+        Returns: undefined
+      }
       get_admins_with_emails: {
-        Args: never
+        Args: Record<PropertyKey, never>
         Returns: {
           can_approve_reject: boolean
           can_manage_admins: boolean
@@ -517,9 +620,18 @@ export type Database = {
       }
       is_book_approved: { Args: { book_uuid: string }; Returns: boolean }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
+      purchase_book_with_wisties: {
+        Args: {
+          p_book_id: string
+          p_amount: number
+          p_book_title: string
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       app_role: "admin" | "author" | "user"
+      wisties_transaction_type: "refund" | "purchase_spend" | "promo" | "admin_adjustment"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -648,6 +760,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "author", "user"],
+      wisties_transaction_type: ["refund", "purchase_spend", "promo", "admin_adjustment"],
     },
   },
 } as const

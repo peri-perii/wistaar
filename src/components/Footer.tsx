@@ -11,6 +11,7 @@ const Footer = () => {
     { to: "/terms", label: "Terms of Service" },
     { to: "/privacy", label: "Privacy Policy" },
     { to: "/copyright", label: "Copyright & DMCA" },
+    { to: "/refund-policy", label: "Wisties Refund Policy" },
   ];
 
   return (
