@@ -51,6 +51,16 @@ const Footer = () => {
             </Link>
           ))}
           <span className="text-xs text-muted-foreground/40">·</span>
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              window.dispatchEvent(new Event("wistaar-open-cookie-preferences"));
+            }}
+            className="text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors bg-transparent border-0 cursor-pointer p-0 focus:outline-none"
+          >
+            Cookie Preferences
+          </button>
+          <span className="text-xs text-muted-foreground/40">·</span>
           <a
             href="mailto:support@wistaar.com"
             className="text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors"

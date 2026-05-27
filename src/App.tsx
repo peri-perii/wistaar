@@ -6,6 +6,7 @@ import { BrowserRouter } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import AnimatedRoutes from "@/components/AnimatedRoutes";
+import CookieConsent from "@/components/CookieConsent";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -25,6 +26,7 @@ const App = () => (
         <TooltipProvider>
           <Toaster />
           <Sonner />
+          <CookieConsent />
           <BrowserRouter>
             <AnimatedRoutes />
           </BrowserRouter>
@@ -35,3 +37,4 @@ const App = () => (
 );
 
 export default App;
+
