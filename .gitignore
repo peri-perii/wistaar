@@ -77,3 +77,7 @@ build/
 # Keep source files
 !src/**/*.js
 !src/**/*.json
+
+# Ignore nested clone directory
+wistaar/
+
