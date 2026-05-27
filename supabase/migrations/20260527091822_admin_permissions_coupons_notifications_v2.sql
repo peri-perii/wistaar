@@ -184,6 +184,7 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
+#variable_conflict use_column
 BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM public.user_roles
