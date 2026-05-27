@@ -41,7 +41,7 @@ const RefundPolicy = () => {
 
         <h3>How do I request a refund?</h3>
         <p>
-          Go to your Library, find the purchased book, and click the "Request refund" button. Your Wisties balance will be credited instantly, and your access to the book will be revoked.
+          Go to your Library, find the purchased book, and click the "Request Refund" button. A modal will open displaying the required instructions to send an email to our support team (support@wistaar.com). The email must contain screenshots showing how much of the book you have read, along with your registered email, username, and the book's price. Our team will review the request and credit your Wisties balance.
         </p>
 
         <h3>Can I get a cash refund to my bank account or credit card?</h3>
