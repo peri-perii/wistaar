@@ -47,7 +47,21 @@ export default function CouponManagement() {
     expires_at: '',
   });
 
-  useEffect(() => { loadCoupons(); }, []);
+  useEffect(() => {
+    loadCoupons();
+
+    // Subscribe to real-time changes on the coupon_codes table
+    const realtimeSub = supabase
+      .channel('coupon-codes-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'coupon_codes' }, () => {
+        loadCoupons();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(realtimeSub);
+    };
+  }, []);
 
   const loadCoupons = async () => {
     setLoading(true);

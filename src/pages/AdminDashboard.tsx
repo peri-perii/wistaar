@@ -154,8 +154,24 @@ export default function AdminDashboard() {
   };
 
   useEffect(() => {
-    if (isAdmin) loadSubmissions();
-  }, [filter]);
+    if (!isAdmin) return;
+    loadSubmissions();
+
+    // Subscribe to real-time changes on the book_submissions and book_chapters tables
+    const submissionsSub = supabase
+      .channel('admin-submissions-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'book_submissions' }, () => {
+        loadSubmissions();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'book_chapters' }, () => {
+        loadSubmissions();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(submissionsSub);
+    };
+  }, [filter, isAdmin]);
 
   const handleAction = async (action: 'approved' | 'rejected') => {
     if (!selectedSub || !user) return;
