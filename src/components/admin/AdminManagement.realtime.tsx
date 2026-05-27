@@ -51,81 +51,41 @@ export function AdminManagement() {
     try {
       setLoading(true)
 
-      // First fetch: get all admins with their user data
+      // Fetch all admins using the database security definer function
       const { data: adminRoles, error: rolesError } = await supabase
-        .from('user_roles')
-        .select(`
-          id,
-          user_id,
-          role,
-          can_approve_reject,
-          can_manage_coupons,
-          can_manage_admins,
-          can_manage_users,
-          created_at,
-          user_profiles!inner(id, email, display_name)
-        `)
-        .eq('role', 'admin')
+        .rpc('get_admins_with_emails')
 
       if (rolesError) throw rolesError
 
-      // Transform data
-      const transformedAdmins = (adminRoles || []).map(ar => ({
+      // Transform returned query rows to the Admin interface format
+      const transformedAdmins = (adminRoles || []).map((ar: any) => ({
         id: ar.id,
         user_id: ar.user_id,
-        email: ar.user_profiles?.email || '',
-        display_name: ar.user_profiles?.display_name,
-        role: ar.role,
+        email: ar.email || '',
+        display_name: ar.display_name,
+        role: 'admin',
         can_approve_reject: ar.can_approve_reject,
         can_manage_coupons: ar.can_manage_coupons,
         can_manage_admins: ar.can_manage_admins,
-        can_manage_users: ar.can_manage_users,
+        can_manage_users: false,
         created_at: ar.created_at,
       }))
 
       setAdmins(transformedAdmins)
 
-      // Subscribe to real-time changes on user_roles
-      const subscription = supabase
-        .from('user_roles')
-        .on('*', payload => {
-          if (payload.eventType === 'INSERT' && payload.new.role === 'admin') {
-            toast({
-              title: 'New admin added',
-              description: 'A new admin has been added to the system',
-            })
-            loadAdmins() // Reload to get user details
-          } else if (payload.eventType === 'DELETE' && payload.old.role === 'admin') {
-            setAdmins(prev => prev.filter(a => a.id !== payload.old.id))
-            toast({
-              title: 'Admin removed',
-              description: 'An admin has been removed from the system',
-              variant: 'destructive',
-            })
-          } else if (payload.eventType === 'UPDATE' && payload.new.role === 'admin') {
-            setAdmins(prev =>
-              prev.map(a =>
-                a.id === payload.new.id
-                  ? {
-                      ...a,
-                      can_approve_reject: payload.new.can_approve_reject,
-                      can_manage_coupons: payload.new.can_manage_coupons,
-                      can_manage_admins: payload.new.can_manage_admins,
-                      can_manage_users: payload.new.can_manage_users,
-                    }
-                  : a
-              )
-            )
-            toast({
-              title: 'Admin permissions updated',
-              description: 'Admin permissions have been changed',
-            })
-          }
+      // Subscribe to real-time changes on roles and permissions to update list seamlessly
+      const realtimeSub = supabase
+        .channel('admin-roles-realtime')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'user_roles' }, () => {
+          loadAdmins()
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'admin_permissions' }, () => {
+          loadAdmins()
         })
         .subscribe()
 
       return () => {
-        subscription?.unsubscribe()
+        supabase.removeChannel(realtimeSub)
       }
     } catch (error: any) {
       toast({
@@ -151,49 +111,13 @@ export function AdminManagement() {
     try {
       setAddingAdmin(true)
 
-      // First, find user by email
-      const { data: users, error: userError } = await supabase
-        .from('user_profiles')
-        .select('id')
-        .eq('email', newAdminEmail)
-        .single()
-
-      if (userError || !users) {
-        toast({
-          title: 'Error',
-          description: 'User not found. They must create an account first.',
-          variant: 'destructive',
-        })
-        return
-      }
-
-      // Check if already admin
-      const { data: existingAdmin } = await supabase
-        .from('user_roles')
-        .select('id')
-        .eq('user_id', users.id)
-        .eq('role', 'admin')
-        .single()
-
-      if (existingAdmin) {
-        toast({
-          title: 'Error',
-          description: 'This user is already an admin',
-          variant: 'destructive',
-        })
-        return
-      }
-
-      // Add admin role
-      const { error: insertError } = await supabase
-        .from('user_roles')
-        .insert({
-          user_id: users.id,
-          role: 'admin',
-          can_approve_reject: permissions.can_approve_reject,
-          can_manage_coupons: permissions.can_manage_coupons,
-          can_manage_admins: permissions.can_manage_admins,
-        })
+      // Call the secure database RPC function to grant admin role and permissions
+      const { error: insertError } = await supabase.rpc('add_admin_by_email', {
+        target_email: newAdminEmail.trim(),
+        p_can_approve_reject: permissions.can_approve_reject,
+        p_can_manage_coupons: permissions.can_manage_coupons,
+        p_can_manage_admins: permissions.can_manage_admins,
+      })
 
       if (insertError) throw insertError
 
@@ -209,7 +133,7 @@ export function AdminManagement() {
         can_manage_admins: false,
       })
 
-      // Reload admins (subscription will update)
+      // Reload admins
       loadAdmins()
     } catch (error: any) {
       toast({
@@ -227,8 +151,9 @@ export function AdminManagement() {
       const updates: any = {}
       updates[permission] = value
 
+      // Update admin_permissions table since that houses the permissions columns
       const { error } = await supabase
-        .from('user_roles')
+        .from('admin_permissions')
         .update(updates)
         .eq('id', admin.id)
 
@@ -238,6 +163,8 @@ export function AdminManagement() {
         title: 'Success',
         description: 'Admin permissions updated',
       })
+      
+      loadAdmins()
     } catch (error: any) {
       toast({
         title: 'Error',
@@ -258,12 +185,22 @@ export function AdminManagement() {
     }
 
     try {
-      const { error } = await supabase
+      // 1. Delete admin role from user_roles
+      const { error: rolesError } = await supabase
         .from('user_roles')
+        .delete()
+        .eq('user_id', admin.user_id)
+        .eq('role', 'admin')
+
+      if (rolesError) throw rolesError
+
+      // 2. Delete entry from admin_permissions
+      const { error: permError } = await supabase
+        .from('admin_permissions')
         .delete()
         .eq('id', admin.id)
 
-      if (error) throw error
+      if (permError) throw permError
 
       toast({
         title: 'Success',
@@ -271,6 +208,7 @@ export function AdminManagement() {
       })
 
       setAdminToRemove(null)
+      loadAdmins()
     } catch (error: any) {
       toast({
         title: 'Error removing admin',
