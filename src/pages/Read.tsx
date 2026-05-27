@@ -45,6 +45,20 @@ import { useBookmarks, Bookmark as BookmarkType } from "@/hooks/useBookmarks";
 import { useToast } from "@/hooks/use-toast";
 import BookSearch from "@/components/BookSearch";
 
+/**
+ * Sanitize user-controlled text before inserting it into UI strings.
+ * Strips HTML tags and trims control characters to prevent XSS / injection.
+ */
+function sanitizeDisplayText(raw: string, maxLen: number): string {
+  const stripped = raw
+    .replace(/<[^>]*>/g, "")           // strip any HTML tags
+    .replace(/[\x00-\x1F\x7F]/g, "")  // strip ASCII control chars
+    .trim();
+  return stripped.length > maxLen
+    ? `${stripped.slice(0, maxLen)}…`
+    : stripped;
+}
+
 export default function Read() {
   const { id } = useParams<{ id: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -228,7 +242,7 @@ export default function Read() {
     if (result) {
       toast({
         title: "Highlight saved",
-        description: `"${selectedText.slice(0, 30)}${selectedText.length > 30 ? "..." : ""}"`,
+        description: sanitizeDisplayText(selectedText, 30),
       });
       setSelectedText("");
       setHighlightNote("");
@@ -584,7 +598,7 @@ export default function Read() {
             <div className="mb-2">
               <p className="text-xs text-muted-foreground mb-1">Selected text:</p>
               <p className="text-sm italic line-clamp-2">
-                "{selectedText.slice(0, 60)}{selectedText.length > 60 ? "..." : ""}"
+                "{sanitizeDisplayText(selectedText, 60)}"
               </p>
             </div>
             <Input
