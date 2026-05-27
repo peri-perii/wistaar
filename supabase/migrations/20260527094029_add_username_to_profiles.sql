@@ -15,3 +15,17 @@ ALTER TABLE public.profiles ADD CONSTRAINT chk_username_format CHECK (
 CREATE POLICY "Anyone can read usernames for availability"
   ON public.profiles FOR SELECT
   USING (true);
+
+-- Create user_profiles view to map auth.users and profiles
+CREATE OR REPLACE VIEW public.user_profiles AS
+SELECT 
+  u.id,
+  u.email,
+  p.display_name,
+  p.avatar_url,
+  p.username
+FROM auth.users u
+LEFT JOIN public.profiles p ON p.user_id = u.id;
+
+GRANT SELECT ON public.user_profiles TO authenticated, anon, service_role;
+
