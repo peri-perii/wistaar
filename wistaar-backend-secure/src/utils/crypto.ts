@@ -148,14 +148,13 @@ class CryptoUtil {
 
   /**
    * Hash a string using bcrypt (for passwords)
-   * @static
    * @async
    * @method hashPassword
    * @param {string} password - The password to hash
    * @param {number} [saltRounds=12] - Number of salt rounds (higher = slower but more secure)
    * @returns {Promise<string>} The bcrypt hash
    */
-  public static async hashPassword(
+  public async hashPassword(
     password: string,
     saltRounds = 12
   ): Promise<string> {
@@ -170,14 +169,13 @@ class CryptoUtil {
 
   /**
    * Compare password with hash using bcrypt
-   * @static
    * @async
    * @method comparePassword
    * @param {string} password - The plain password to compare
    * @param {string} hash - The bcrypt hash to compare against
    * @returns {Promise<boolean>} True if password matches hash
    */
-  public static async comparePassword(
+  public async comparePassword(
     password: string,
     hash: string
   ): Promise<boolean> {

@@ -34,7 +34,6 @@ export interface AuthRequest extends Request {
   role?: UserRole;
   iat?: number;
   exp?: number;
-  ip?: string;
 }
 
 /**

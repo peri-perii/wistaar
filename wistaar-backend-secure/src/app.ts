@@ -1,27 +1,12 @@
-/**
- * @fileoverview Express application setup and configuration
- * Initializes middleware, routes, and security features
- * @module app
- */
-
-import express, { Express } from 'express';
+import express, { Express, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import 'dotenv/config';
 
-import { logger, requestLogger } from './middleware/error.js';
-import {
-  authMiddleware,
-  optionalAuthMiddleware,
-  refreshTokenMiddleware,
-} from './middleware/auth.js
-import {
-  generalLimiter,
-  authLimiter,
-  uploadLimiter,
-  paymentLimiter,
-} from './middleware/rateLimit.js';
+import { logger } from './utils/logger.js';
+import { requestLogger } from './middleware/error.js';
+import { generalLimiter } from './middleware/rateLimit.js';
 import {
   sanitizationMiddleware,
   validatePayloadSize,
@@ -29,7 +14,6 @@ import {
 import {
   errorHandler,
   notFoundHandler,
-  asyncHandler,
 } from './middleware/error.js';
 
 /**
@@ -67,7 +51,7 @@ export function createApp(): Express {
 
   // HTTPS redirect
   if (process.env.NODE_ENV === 'production') {
-    app.use((req, res, next) => {
+    app.use((req: Request, res: Response, next: NextFunction) => {
       if (req.header('x-forwarded-proto') !== 'https') {
         res.redirect(`https://${req.header('host')}${req.url}`);
       } else {
@@ -106,7 +90,7 @@ export function createApp(): Express {
   app.use(generalLimiter);
 
   // ============ Health Check ============
-  app.get('/health', (req, res) => {
+  app.get('/health', (_req: Request, res: Response) => {
     res.status(200).json({
       success: true,
       message: 'Server is healthy',

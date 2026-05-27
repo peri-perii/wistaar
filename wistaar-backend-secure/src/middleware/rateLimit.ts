@@ -97,12 +97,12 @@ export const uploadLimiter: RateLimitRequestHandler = rateLimit({
   legacyHeaders: false,
   keyGenerator: (req) => {
     // Rate limit by user ID if authenticated, otherwise by IP
-    return (req.user as any)?.id || req.ip || 'unknown';
+    return (req as any).userId || req.ip || 'unknown';
   },
   handler: (req, res) => {
     logSecurityEvent(
       'rate_limit_exceeded_upload',
-      (req.user as any)?.id,
+      (req as any).userId,
       req.ip
     );
 
@@ -163,17 +163,17 @@ export const paymentLimiter: RateLimitRequestHandler = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: (req) => {
-    return (req.user as any)?.id || req.ip || 'unknown';
+    return (req as any).userId || req.ip || 'unknown';
   },
   handler: (req, res) => {
     logSecurityEvent(
       'rate_limit_exceeded_payment',
-      (req.user as any)?.id,
+      (req as any).userId,
       req.ip
     );
 
     logger.warn('Payment rate limit exceeded', {
-      userId: (req.user as any)?.id,
+      userId: (req as any).userId,
       ip: req.ip,
     });
 

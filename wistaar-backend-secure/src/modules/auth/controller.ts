@@ -4,8 +4,10 @@
  * @module modules/auth/controller
  */
 
-import { Response } from 'express';
+import { Response, Router } from 'express';
+import { z } from 'zod';
 import { authService } from './service.js';
+import { authMiddleware } from '../../middleware/auth.js';
 import { authLimiter, emailVerificationLimiter, passwordResetLimiter } from '../../middleware/rateLimit.js';
 import { validate } from '../../middleware/validation.js';
 import { asyncHandler, AppError } from '../../middleware/error.js';
@@ -248,7 +250,7 @@ export class AuthController {
     const { token, password } = req.body;
 
     // TODO: Verify token, hash new password, update DB
-    logger.info('Password reset completion requested');
+    logger.info('Password reset completion requested', { has_token: !!token, password_len: password?.length });
 
     res.status(200).json({
       success: true,
@@ -268,7 +270,6 @@ export class AuthController {
  * app.use('/api/auth', authRoutes);
  */
 export function createAuthRoutes() {
-  const { Router } = require('express');
   const router = Router();
 
   // Public routes with rate limiting
@@ -308,8 +309,6 @@ export function createAuthRoutes() {
   );
 
   // Protected routes
-  const { authMiddleware } = require('../../middleware/auth');
-
   router.post(
     '/refresh',
     validate({ body: z.object({}).optional() }),

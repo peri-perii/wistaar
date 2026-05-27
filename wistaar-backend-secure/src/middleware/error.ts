@@ -38,13 +38,13 @@ export class AppError extends Error {
  * @param {any} error - The error object
  * @param {Request} req - Express request
  * @param {Response} res - Express response
- * @param {NextFunction} next - Express next function
+ * @param {NextFunction} _next - Express next function
  */
 export function errorHandler(
   error: any,
   req: Request,
   res: Response,
-  next: NextFunction
+  _next: NextFunction
 ): void {
   logger.error('Unhandled error', {
     message: error.message,

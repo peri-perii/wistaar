@@ -266,7 +266,7 @@ export class S3Uploader {
       // TODO: Use AWS SDK v3 getSignedUrl function
       // For now, return placeholder
       const baseUrl = `https://${this.bucketName}.s3.amazonaws.com`;
-      return `${baseUrl}/${s3Key}`;
+      return `${baseUrl}/${s3Key}?expires=${expirySeconds}`;
     } catch (error) {
       logger.error('Failed to generate signed URL', { s3Key, error });
       throw new Error('Failed to generate signed URL');

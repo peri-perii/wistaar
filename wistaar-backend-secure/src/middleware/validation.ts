@@ -5,7 +5,7 @@
  */
 
 import { Request, Response, NextFunction } from 'express';
-import { ZodSchema, ZodError } from 'zod';
+import { ZodError } from 'zod';
 import { logger } from '../utils/logger.js';
 import DOMPurify from 'isomorphic-dompurify';
 
@@ -27,19 +27,19 @@ import DOMPurify from 'isomorphic-dompurify';
  * };
  * router.post('/login', validate(schemas), controller);
  */
-export function validate(schemas: {
-  body?: ZodSchema;
-  params?: ZodSchema;
-  query?: ZodSchema;
-}) {
+export function validate(schemas: any) {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const errors: Record<string, any> = {};
 
+      const bodySchema = schemas.body || (schemas.shape && schemas.shape.body);
+      const paramsSchema = schemas.params || (schemas.shape && schemas.shape.params);
+      const querySchema = schemas.query || (schemas.shape && schemas.shape.query);
+
       // Validate body
-      if (schemas.body) {
+      if (bodySchema) {
         try {
-          const validatedBody = schemas.body.parse(req.body);
+          const validatedBody = bodySchema.parse(req.body);
           req.body = validatedBody;
         } catch (error) {
           if (error instanceof ZodError) {
@@ -49,9 +49,9 @@ export function validate(schemas: {
       }
 
       // Validate params
-      if (schemas.params) {
+      if (paramsSchema) {
         try {
-          const validatedParams = schemas.params.parse(req.params);
+          const validatedParams = paramsSchema.parse(req.params);
           req.params = validatedParams;
         } catch (error) {
           if (error instanceof ZodError) {
@@ -61,9 +61,9 @@ export function validate(schemas: {
       }
 
       // Validate query
-      if (schemas.query) {
+      if (querySchema) {
         try {
-          const validatedQuery = schemas.query.parse(req.query);
+          const validatedQuery = querySchema.parse(req.query);
           req.query = validatedQuery;
         } catch (error) {
           if (error instanceof ZodError) {

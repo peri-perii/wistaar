@@ -52,7 +52,6 @@ export function authMiddleware(
     req.role = decoded.role;
     req.iat = decoded.iat;
     req.exp = decoded.exp;
-    req.ip = req.ip || req.connection.remoteAddress;
 
     logger.debug('Token verified', {
       userId: decoded.userId,
@@ -131,7 +130,7 @@ function extractToken(req: AuthRequest): string | null {
  */
 export function optionalAuthMiddleware(
   req: AuthRequest,
-  res: Response,
+  _res: Response,
   next: NextFunction
 ): void {
   try {
@@ -146,7 +145,6 @@ export function optionalAuthMiddleware(
       req.userId = decoded.userId;
       req.email = decoded.email;
       req.role = decoded.role;
-      req.ip = req.ip || req.connection.remoteAddress;
     }
 
     next();

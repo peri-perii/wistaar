@@ -1,7 +1,7 @@
 // Barrel export for utilities
-export { CryptoUtil } from './crypto.js';
+export { cryptoUtil, EncryptionResult } from './crypto.js';
 export { logger, logAuthEvent, logAdminAction, logPaymentEvent, logSecurityEvent } from './logger.js';
-export { S3Uploader, uploader, ALLOWED_FILE_TYPES } from './fileUpload.js';
+export { S3Uploader, uploader } from './fileUpload.js';
 
 export type {
   UserRole,
@@ -21,5 +21,5 @@ export type {
   NotificationPayload,
   EmailConfig,
   EmailParams,
-  EncryptionResult,
 } from './types.js';
+
