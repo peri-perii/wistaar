@@ -1,11 +1,14 @@
 {
-  "name": "Wistaar: Global Reading Studio",
+  "name": "Wistaar – Reading Studio",
   "short_name": "Wistaar",
-  "description": "Premium digital reading and publishing studio.",
+  "description": "Discover and read exceptional eBooks from independent Indian authors. Distraction-free reading, free chapters, premium content.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#000000",
+  "background_color": "#0a0a0a",
+  "theme_color": "#0a0a0a",
+  "lang": "en-IN",
+  "scope": "/",
+  "categories": ["books", "education", "entertainment"],
   "icons": [
     {
       "src": "/favicon.png",
@@ -16,7 +19,8 @@
     {
       "src": "/favicon.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     }
   ]
 }

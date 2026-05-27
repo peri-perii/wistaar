@@ -3,51 +3,78 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- ══ Primary SEO ══════════════════════════════════════════════════════ -->
     <title>Wistaar – Where Stories Are Written and Read with Care</title>
-    <meta name="description" content="Wistaar is a distraction-free reading platform where authors publish freely and readers discover exceptional eBooks. Premium reading experience with complete creative control." />
-    <meta name="keywords" content="ebooks, digital reading, publish books, independent authors, reading platform, premium ebooks, free books, Indian authors" />
-    <link rel="canonical" href="https://wistaar.com" />
+    <meta name="description" content="Wistaar is a distraction-free reading platform where independent authors publish freely and readers discover exceptional eBooks. Start reading today — no ads, no noise." />
+    <meta name="keywords" content="ebooks, digital reading, publish books, independent authors, reading platform, premium ebooks, free ebooks, Indian authors, wistaar" />
+    <link rel="canonical" href="https://wistaar.in" />
     <meta name="theme-color" content="#0a0a0a" />
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
-    
-    <!-- Open Graph -->
+    <meta name="author" content="Wistaar" />
+
+    <!-- ══ Open Graph ═══════════════════════════════════════════════════════ -->
     <meta property="og:title" content="Wistaar – Where Stories Are Written and Read with Care" />
-    <meta property="og:description" content="A distraction-free reading platform for authors and readers who value simplicity." />
+    <meta property="og:description" content="A distraction-free digital reading platform for authors and readers who value simplicity, depth, and creative freedom." />
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://wistaar.com" />
+    <meta property="og:url" content="https://wistaar.in" />
     <meta property="og:site_name" content="Wistaar" />
     <meta property="og:locale" content="en_IN" />
+    <meta property="og:image" content="https://wistaar.in/og-default.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Wistaar – Premium Digital Reading Platform" />
 
-    <!-- Twitter -->
+    <!-- ══ Twitter / X ══════════════════════════════════════════════════════ -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Wistaar – Digital Reading Platform" />
-    <meta name="twitter:description" content="Where stories are written and read with care." />
-    
+    <meta name="twitter:description" content="Discover exceptional eBooks from independent Indian authors. Read free chapters, buy premium books, and publish your own stories." />
+    <meta name="twitter:image" content="https://wistaar.in/og-default.png" />
+
+    <!-- ══ Icons & PWA ═══════════════════════════════════════════════════════ -->
     <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/favicon.png" />
+    <link rel="manifest" href="/manifest.json" />
 
-    <!-- Preconnect to Supabase for faster API calls -->
-    <link rel="preconnect" href="https://jxlpxworxpjjhavtkrqu.supabase.co" />
-    <link rel="dns-prefetch" href="https://jxlpxworxpjjhavtkrqu.supabase.co" />
+    <!-- ══ Performance: preconnect to Supabase ═══════════════════════════════ -->
+    <link rel="preconnect" href="https://orgmibaxaypelczsfbcg.supabase.co" />
+    <link rel="dns-prefetch" href="https://orgmibaxaypelczsfbcg.supabase.co" />
 
-    <!-- JSON-LD Structured Data -->
+    <!-- ══ JSON-LD Structured Data ═══════════════════════════════════════════ -->
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
       "@type": "WebApplication",
       "name": "Wistaar",
-      "url": "https://wistaar.com",
-      "description": "A distraction-free digital reading platform where authors publish freely and readers discover exceptional eBooks.",
-      "applicationCategory": "ReadingApplication",
+      "url": "https://wistaar.in",
+      "description": "A distraction-free digital reading platform where independent authors publish freely and readers discover exceptional eBooks.",
+      "applicationCategory": "BookApplication",
       "operatingSystem": "Web",
-      "offers": {
-        "@type": "Offer",
-        "price": "0",
-        "priceCurrency": "INR",
-        "description": "Free books available, premium books at affordable prices"
-      },
-      "creator": {
+      "inLanguage": "en-IN",
+      "offers": [
+        {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "INR",
+          "description": "Free chapters available for all books"
+        }
+      ],
+      "publisher": {
         "@type": "Organization",
-        "name": "Wistaar"
+        "name": "Wistaar",
+        "url": "https://wistaar.in",
+        "logo": {
+          "@type": "ImageObject",
+          "url": "https://wistaar.in/favicon.png"
+        }
+      },
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": {
+          "@type": "EntryPoint",
+          "urlTemplate": "https://wistaar.in/explore?q={search_term_string}"
+        },
+        "query-input": "required name=search_term_string"
       }
     }
     </script>

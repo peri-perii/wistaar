@@ -6,8 +6,16 @@ import AuthorSection from "@/components/AuthorSection";
 import ReadingExperienceSection from "@/components/ReadingExperienceSection";
 import CTASection from "@/components/CTASection";
 import Footer from "@/components/Footer";
+import { useSEO } from "@/hooks/useSEO";
 
 const Index = () => {
+  useSEO({
+    title: "Where Stories Are Written and Read with Care",
+    description:
+      "Wistaar is a distraction-free reading platform where independent authors publish freely and readers discover exceptional eBooks. Free chapters, premium books, zero ads.",
+    canonicalPath: "/",
+  });
+
   return (
     <div className="min-h-screen bg-background">
       <Navigation />

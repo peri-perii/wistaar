@@ -12,9 +12,18 @@ Allow: /
 
 User-agent: *
 Allow: /
+# Private pages — no index
 Disallow: /admin
-Disallow: /author/
+Disallow: /admin/
+Disallow: /author/dashboard
+Disallow: /author/submit
 Disallow: /profile
 Disallow: /cart
+Disallow: /library
+Disallow: /reader/
+Disallow: /read/
+Disallow: /auth
+Disallow: /forgot-password
+Disallow: /reset-password
 
-Sitemap: https://wistaar.com/sitemap.xml
+Sitemap: https://wistaar.in/sitemap.xml

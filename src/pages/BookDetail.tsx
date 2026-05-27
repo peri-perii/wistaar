@@ -19,6 +19,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { useCoupon } from "@/hooks/useCoupon";
 import { calculatePriceBreakdown } from "@/lib/pricing";
+import { useSEO } from "@/hooks/useSEO";
 
 export default function BookDetail() {
   const { id } = useParams<{ id: string }>();
@@ -46,6 +47,24 @@ export default function BookDetail() {
     validateCoupon, removeCoupon, incrementUsage,
   } = useCoupon(bookPrice);
 
+  // Resolve book early so SEO can use it
+  const approvedBook = approvedBooks?.find((b) => b.id === id);
+  const mockBook = mockBooks.find((b) => b.id === id);
+  const resolvedTitle = approvedBook?.title ?? mockBook?.title ?? "Book";
+  const resolvedAuthor = approvedBook?.author ?? mockBook?.author ?? "";
+  const resolvedDesc = approvedBook?.description ?? mockBook?.fullDescription ?? "";
+  const resolvedCover = approvedBook?.coverImageUrl ?? undefined;
+
+  useSEO({
+    title: resolvedTitle ? `${resolvedTitle} by ${resolvedAuthor}` : "Book Details",
+    description: resolvedDesc
+      ? `${resolvedDesc.slice(0, 140).trimEnd()}…`
+      : `Read ${resolvedTitle} by ${resolvedAuthor} on Wistaar. Free preview chapters available.`,
+    canonicalPath: `/book/${id}`,
+    ogImage: resolvedCover,
+    ogType: "book",
+  });
+
   // Show toast on payment redirect
   useEffect(() => {
     const payment = searchParams.get("payment");
@@ -55,10 +74,6 @@ export default function BookDetail() {
       toast.error("Payment failed. Please try again.");
     }
   }, [searchParams]);
-
-  // Try approved book first, then fall back to mock
-  const approvedBook = approvedBooks?.find((b) => b.id === id);
-  const mockBook = mockBooks.find((b) => b.id === id);
 
   const isApproved = !!approvedBook;
 

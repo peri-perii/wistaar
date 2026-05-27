@@ -3,6 +3,7 @@ import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { BookOpen, Shield, Users, TrendingUp, Zap, Globe } from "lucide-react";
+import { useSEO } from "@/hooks/useSEO";
 
 const features = [
   {
@@ -45,6 +46,13 @@ const steps = [
 ];
 
 const Publish = () => {
+  useSEO({
+    title: "Publish Your Book",
+    description:
+      "Publish your eBook on Wistaar and reach readers across India. Full creative control, fair revenue share, and zero gatekeeping. Start for free today.",
+    canonicalPath: "/publish",
+  });
+
   return (
     <div className="min-h-screen bg-background">
       <Navigation />

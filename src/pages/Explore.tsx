@@ -15,10 +15,18 @@ import ExploreBookCard from "@/components/ExploreBookCard";
 import ApprovedBookCard from "@/components/ApprovedBookCard";
 import { mockBooks, genres, sortOptions } from "@/data/books";
 import { useApprovedBooks } from "@/hooks/useApprovedBooks";
+import { useSEO } from "@/hooks/useSEO";
 
 type PriceFilter = "all" | "free" | "premium";
 
 const Explore = () => {
+  useSEO({
+    title: "Explore Books",
+    description:
+      "Browse hundreds of eBooks from independent Indian authors. Filter by genre, price, and author. Free previews available on every book.",
+    canonicalPath: "/explore",
+  });
+
   const { data: approvedBooks = [], isLoading } = useApprovedBooks();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedGenre, setSelectedGenre] = useState("All Genres");

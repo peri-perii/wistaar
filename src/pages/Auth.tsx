@@ -10,12 +10,20 @@ import { useToast } from '@/hooks/use-toast';
 import { z } from 'zod';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Separator } from '@/components/ui/separator';
+import { useSEO } from '@/hooks/useSEO';
 
 const emailSchema = z.string().email('Please enter a valid email address');
 const passwordSchema = z.string().min(6, 'Password must be at least 6 characters');
 
 export default function Auth() {
   const [isSignUp, setIsSignUp] = useState(false);
+
+  useSEO({
+    title: isSignUp ? 'Create Account' : 'Sign In',
+    description: 'Sign in or create your Wistaar account to start reading and publishing eBooks.',
+    canonicalPath: '/auth',
+    noIndex: true,
+  });
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
