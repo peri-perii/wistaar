@@ -20,6 +20,7 @@ interface Admin {
   email: string
   display_name?: string
   role: string
+  is_super_admin: boolean
   can_approve_reject: boolean
   can_manage_coupons: boolean
   can_manage_admins: boolean
@@ -27,7 +28,7 @@ interface Admin {
   created_at: string
 }
 
-const OWNER_EMAIL = 'priyamj1502@gmail.com'
+
 
 export function AdminManagement() {
   const [admins, setAdmins] = useState<Admin[]>([])
@@ -64,6 +65,7 @@ export function AdminManagement() {
         email: ar.email || '',
         display_name: ar.display_name,
         role: 'admin',
+        is_super_admin: !!ar.is_super_admin,
         can_approve_reject: ar.can_approve_reject,
         can_manage_coupons: ar.can_manage_coupons,
         can_manage_admins: ar.can_manage_admins,
@@ -175,7 +177,7 @@ export function AdminManagement() {
   }
 
   const handleRemoveAdmin = async (admin: Admin) => {
-    if (admin.email === OWNER_EMAIL) {
+    if (admin.is_super_admin) {
       toast({
         title: 'Error',
         description: 'Cannot remove the owner/super admin',
@@ -308,7 +310,7 @@ export function AdminManagement() {
                   <div>
                     <div className="flex items-center gap-2">
                       <h3 className="font-medium">{admin.email}</h3>
-                      {admin.email === OWNER_EMAIL && (
+                      {admin.is_super_admin && (
                         <span className="text-lg" title="Owner/Super Admin">
                           👑
                         </span>
@@ -324,7 +326,7 @@ export function AdminManagement() {
                     </p>
                   </div>
 
-                  {admin.email !== OWNER_EMAIL && (
+                  {!admin.is_super_admin && (
                     <Button
                       variant="ghost"
                       size="sm"
@@ -337,7 +339,7 @@ export function AdminManagement() {
                 </div>
 
                 {/* Permissions */}
-                <div className="bg-white dark:bg-slate-700 rounded p-3 space-y-2">
+                <div className="bg-white dark:bg-slate-700 rounded p-3 space-y-2" aria-disabled={admin.is_super_admin}>
                   <label className="flex items-center gap-2">
                     <input
                       type="checkbox"
@@ -349,7 +351,7 @@ export function AdminManagement() {
                           e.target.checked
                         )
                       }
-                      disabled={admin.email === OWNER_EMAIL}
+                      disabled={admin.is_super_admin}
                       className="rounded"
                     />
                     <span className="text-sm">Approve/Reject Books</span>
@@ -365,7 +367,7 @@ export function AdminManagement() {
                           e.target.checked
                         )
                       }
-                      disabled={admin.email === OWNER_EMAIL}
+                      disabled={admin.is_super_admin}
                       className="rounded"
                     />
                     <span className="text-sm">Manage Coupons</span>
@@ -381,7 +383,7 @@ export function AdminManagement() {
                           e.target.checked
                         )
                       }
-                      disabled={admin.email === OWNER_EMAIL}
+                      disabled={admin.is_super_admin}
                       className="rounded"
                     />
                     <span className="text-sm">Manage Admins</span>
@@ -412,12 +414,6 @@ export function AdminManagement() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Info Box */}
-      <div className="bg-blue-50 dark:bg-blue-900 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-        <p className="text-sm text-blue-900 dark:text-blue-100">
-          <strong>Real-time Updates:</strong> When an admin is added or removed anywhere in the system, this list updates instantly!
-        </p>
-      </div>
     </div>
   )
 }

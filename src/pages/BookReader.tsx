@@ -7,10 +7,12 @@ import { useHasPurchased } from "@/hooks/usePurchases";
 import { useAuth } from "@/hooks/useAuth";
 import { useReadingProgress } from "@/hooks/useReadingProgress";
 import { Button } from "@/components/ui/button";
-import { BookOpen } from "lucide-react";
+import { BookOpen, IndianRupee, ShoppingCart, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
 import PageFlipBook, { type PageFlipBookRef } from "@/components/reader/PageFlipBook";
 import ReaderToolbar from "@/components/reader/ReaderToolbar";
+import { Link } from "react-router-dom";
 
 export default function BookReader() {
   const { id } = useParams<{ id: string }>();
@@ -74,7 +76,18 @@ export default function BookReader() {
   const [fontSize, setFontSize] = useState(17);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showControls, setShowControls] = useState(true);
+  const [animationMode, setAnimationMode] = useState<"flip" | "scroll">(
+    () => (localStorage.getItem("reader-animation-mode") as "flip" | "scroll") || "flip"
+  );
   const controlsTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const toggleAnimationMode = useCallback(() => {
+    setAnimationMode((prev) => {
+      const next = prev === "flip" ? "scroll" : "flip";
+      localStorage.setItem("reader-animation-mode", next);
+      return next;
+    });
+  }, []);
 
   const resetControlsTimer = useCallback(() => {
     setShowControls(true);
@@ -224,43 +237,117 @@ export default function BookReader() {
         isFullscreen={isFullscreen}
         visible={showControls}
         chapters={chapters}
+        animationMode={animationMode}
         onBack={() => navigate(`/book/${id}`)}
         onPrevPage={() => flipBookRef.current?.flipPrev()}
         onNextPage={() => flipBookRef.current?.flipNext()}
         onFontSizeChange={adjustFontSize}
         onToggleFullscreen={toggleFullscreen}
         onGoToChapter={goToChapter}
+        onToggleAnimationMode={toggleAnimationMode}
       />
 
-      {/* Book */}
-      <motion.div
-        className={cn(
-          "flex items-center justify-center transition-all duration-300",
-          showControls ? "pt-14 sm:pt-16 pb-2 sm:pb-4" : "pt-2 sm:pt-4 pb-2 sm:pb-4",
-          "min-h-screen"
-        )}
-        onClick={(e) => e.stopPropagation()}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.5, ease: "easeOut" }}
-      >
-        <div
-          className="w-full max-w-[1100px] mx-auto px-2 sm:px-4"
-          style={{ height: "calc(100vh - 80px)" }}
-        >
-          <PageFlipBook
-            ref={flipBookRef}
-            chapters={chapters}
-            fontSize={fontSize}
-            currentPage={currentPage}
-            onPageChange={handlePageChange}
-            bookTitle={book?.title || "Book"}
-            bookId={id}
-            isPremiumLocked={isPremium && !isUnlocked}
-            priceAmount={book?.priceAmount}
-          />
-        </div>
-      </motion.div>
+        <AnimatePresence mode="wait">
+          {animationMode === "flip" ? (
+            <motion.div
+              key="flip"
+              className={cn(
+                "flex items-center justify-center transition-all duration-300",
+                showControls ? "pt-14 sm:pt-16 pb-2 sm:pb-4" : "pt-2 sm:pt-4 pb-2 sm:pb-4",
+                "min-h-screen"
+              )}
+              onClick={(e) => e.stopPropagation()}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.3 }}
+            >
+              <div
+                className="w-full max-w-[1100px] mx-auto px-2 sm:px-4"
+                style={{ height: "calc(100vh - 80px)" }}
+              >
+                <PageFlipBook
+                  ref={flipBookRef}
+                  chapters={chapters}
+                  fontSize={fontSize}
+                  currentPage={currentPage}
+                  onPageChange={handlePageChange}
+                  bookTitle={book?.title || "Book"}
+                  bookId={id}
+                  isPremiumLocked={isPremium && !isUnlocked}
+                  priceAmount={book?.priceAmount}
+                />
+              </div>
+            </motion.div>
+          ) : (
+            // ── Scroll mode ──
+            <motion.div
+              key="scroll"
+              className={cn(
+                "transition-all duration-300",
+                showControls ? "pt-16 sm:pt-20" : "pt-4"
+              )}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.3 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="max-w-[680px] mx-auto px-6 pb-24">
+                {chapters.map((chapter, ci) => (
+                  <div key={chapter.id} className="mb-16" id={`chapter-${chapter.chapter_number}`}>
+                    {/* Chapter header */}
+                    <div className="text-center mb-10 py-8 border-b border-border/30">
+                      <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground mb-3">
+                        Chapter {chapter.chapter_number}
+                      </p>
+                      <h2
+                        className="font-serif text-foreground leading-tight"
+                        style={{ fontSize: `${fontSize + 8}px` }}
+                      >
+                        {chapter.title}
+                      </h2>
+                    </div>
+                    {/* Chapter content */}
+                    <div
+                      className="font-serif text-foreground/90 leading-[1.9] whitespace-pre-line"
+                      style={{ fontSize: `${fontSize}px` }}
+                    >
+                      {chapter.content}
+                    </div>
+                  </div>
+                ))}
+
+                {/* Paywall in scroll mode */}
+                {isPremium && !isUnlocked && (
+                  <div className="mt-8 rounded-2xl border border-border bg-card p-10 text-center">
+                    <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-5">
+                      <Lock className="w-7 h-7 text-primary" />
+                    </div>
+                    <h3 className="font-serif text-xl text-foreground mb-2">Free preview ends here</h3>
+                    <p className="text-muted-foreground text-sm mb-7 max-w-sm mx-auto">
+                      Purchase this book to continue reading all chapters.
+                    </p>
+                    <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                      <Link to={`/book/${id}`}>
+                        <Button size="lg" className="gap-2">
+                          <IndianRupee className="h-4 w-4" />
+                          Buy for ₹{book?.priceAmount || 0}
+                        </Button>
+                      </Link>
+                      <Link to={`/book/${id}`}>
+                        <Button variant="outline" size="lg" className="gap-2">
+                          <ShoppingCart className="h-4 w-4" />
+                          Back to Book
+                        </Button>
+                      </Link>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
       {/* Tap zones for mobile */}
       <div className="fixed inset-0 z-10 pointer-events-none">

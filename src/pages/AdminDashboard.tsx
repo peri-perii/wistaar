@@ -36,7 +36,7 @@ interface ChapterCount {
   count: number;
 }
 
-const SUPER_ADMIN_EMAIL = 'priyamj1502@gmail.com';
+
 
 export default function AdminDashboard() {
   const { user, loading } = useAuth();

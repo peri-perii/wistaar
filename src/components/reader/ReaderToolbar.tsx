@@ -9,6 +9,8 @@ import {
   Plus,
   Maximize,
   Minimize,
+  BookOpen,
+  ScrollText,
 } from "lucide-react";
 import {
   Sheet,
@@ -30,12 +32,14 @@ interface ReaderToolbarProps {
   isFullscreen: boolean;
   visible: boolean;
   chapters: BookChapter[];
+  animationMode: "flip" | "scroll";
   onBack: () => void;
   onPrevPage: () => void;
   onNextPage: () => void;
   onFontSizeChange: (delta: number) => void;
   onToggleFullscreen: () => void;
   onGoToChapter: (chapterNumber: number) => void;
+  onToggleAnimationMode: () => void;
 }
 
 export default function ReaderToolbar({
@@ -47,12 +51,14 @@ export default function ReaderToolbar({
   isFullscreen,
   visible,
   chapters,
+  animationMode,
   onBack,
   onPrevPage,
   onNextPage,
   onFontSizeChange,
   onToggleFullscreen,
   onGoToChapter,
+  onToggleAnimationMode,
 }: ReaderToolbarProps) {
   return (
     <motion.header
@@ -101,6 +107,21 @@ export default function ReaderToolbar({
               <Plus className="h-3 w-3" />
             </Button>
           </div>
+
+          {/* Animation mode toggle */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onToggleAnimationMode}
+            className="h-9 w-9 sm:h-10 sm:w-10"
+            title={animationMode === "flip" ? "Switch to scroll mode" : "Switch to flip mode"}
+          >
+            {animationMode === "flip" ? (
+              <ScrollText className="h-4 w-4 sm:h-5 sm:w-5" />
+            ) : (
+              <BookOpen className="h-4 w-4 sm:h-5 sm:w-5" />
+            )}
+          </Button>
 
           {/* Fullscreen */}
           <Button variant="ghost" size="icon" onClick={onToggleFullscreen} className="h-9 w-9 sm:h-10 sm:w-10">
