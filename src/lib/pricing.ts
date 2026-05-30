@@ -3,7 +3,7 @@ export const WISTIES_THRESHOLD = 99;
 
 /** Basic breakdown used for pure-cash purchases. */
 export const calculatePriceBreakdown = (bookPrice: number, feePercent: number = 10) => {
-  const platformFee = Number(((bookPrice * feePercent) / 100).toFixed(2));
+  const platformFee = 6.99;
   const authorEarnings = Number((bookPrice - platformFee).toFixed(2));
 
   return {
@@ -20,7 +20,7 @@ export const calculatePriceBreakdown = (bookPrice: number, feePercent: number = 
  * - Wisties are only applicable when bookPrice > WISTIES_THRESHOLD (₹99).
  * - User must always pay at least ₹99 in cash (the threshold amount).
  * - Wisties can cover at most (bookPrice - 99) rupees, capped by the user's balance.
- * - Platform fee (10%) is applied on the cash portion only.
+ * - Platform fee is a flat ₹6.99.
  */
 export const calculateSplitPayment = (
   bookPrice: number,
@@ -28,9 +28,9 @@ export const calculateSplitPayment = (
   feePercent: number = 10
 ) => {
   const canUseWisties = bookPrice > WISTIES_THRESHOLD;
+  const platformFee = 6.99;
 
   if (!canUseWisties) {
-    const platformFee = Number(((bookPrice * feePercent) / 100).toFixed(2));
     return {
       canUseWisties: false,
       wistiesApplied: 0,
@@ -45,7 +45,6 @@ export const calculateSplitPayment = (
   const wistiesApplied = Number(Math.min(wistiesBalance, maxWistiesApplicable).toFixed(2));
 
   const cashBeforeFee = Number((bookPrice - wistiesApplied).toFixed(2)); // always ≥ ₹99
-  const platformFee   = Number(((cashBeforeFee * feePercent) / 100).toFixed(2));
   const cashTotal     = Number((cashBeforeFee + platformFee).toFixed(2));
 
   return {
