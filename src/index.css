@@ -160,6 +160,10 @@
     @apply max-w-5xl mx-auto px-6;
   }
 
+  .container-editorial {
+    @apply w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+
   .section-padding {
     @apply py-24 md:py-32;
   }

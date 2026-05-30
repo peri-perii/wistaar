@@ -22,7 +22,7 @@ export default function LibraryStats({ totalBooks, completedBooks, inProgressBoo
   if (totalBooks === 0 && purchasedCount === 0) return null;
 
   const stats = [
-    { icon: BookOpen, label: "Total Books", value: totalBooks + purchasedCount, color: "text-primary" },
+    { icon: BookOpen, label: "Total Books", value: purchasedCount, color: "text-primary" },
     { icon: TrendingUp, label: "In Progress", value: inProgressBooks, color: "text-amber-500" },
     { icon: CheckCircle, label: "Completed", value: completedBooks, color: "text-emerald-500" },
     { icon: Clock, label: "Purchased", value: purchasedCount, color: "text-blue-500" },
