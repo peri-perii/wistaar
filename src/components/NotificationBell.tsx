@@ -88,7 +88,7 @@ export default function NotificationBell() {
       <PopoverTrigger asChild>
         <button
           id="notification-bell-trigger"
-          className="relative p-2 rounded-lg hover:bg-muted/60 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="relative w-12 h-12 md:w-9 md:h-9 flex items-center justify-center rounded-lg hover:bg-muted/60 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ""}`}
         >
           {/* Bell with subtle shake animation when there are unread */}

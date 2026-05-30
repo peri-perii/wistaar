@@ -138,11 +138,11 @@ const Navigation = () => {
           </div>
 
           {/* Mobile right section */}
-          <div className="flex md:hidden items-center gap-1">
+          <div className="flex md:hidden items-center gap-2">
             {user && cartCount > 0 && (
-              <Link to="/cart" className="relative p-2">
+              <Link to="/cart" className="relative w-12 h-12 flex items-center justify-center">
                 <ShoppingCart className="h-5 w-5 text-muted-foreground" />
-                <span className="absolute top-0.5 right-0.5 bg-primary text-primary-foreground text-[10px] font-bold rounded-full h-4 w-4 flex items-center justify-center">
+                <span className="absolute top-1.5 right-1.5 bg-primary text-primary-foreground text-[10px] font-bold rounded-full h-4 w-4 flex items-center justify-center">
                   {cartCount}
                 </span>
               </Link>
@@ -150,7 +150,7 @@ const Navigation = () => {
             {user && <NotificationBell />}
             <ThemeToggle />
             <button
-              className="p-2 rounded-md hover:bg-muted/50 transition-colors"
+              className="w-12 h-12 flex items-center justify-center rounded-md hover:bg-muted/50 transition-colors"
               onClick={() => setIsOpen(!isOpen)}
               aria-label="Toggle menu"
             >
