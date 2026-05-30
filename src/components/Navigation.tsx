@@ -98,7 +98,7 @@ const Navigation = () => {
             {user && <NotificationBell />}
             <ThemeToggle />
             {loading ? (
-              <div className="h-8 w-8 bg-muted animate-pulse rounded-full" />
+              <div className="w-[92px] h-9 rounded-md bg-muted animate-pulse" />
             ) : user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>

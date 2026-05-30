@@ -2,16 +2,28 @@ import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { useApprovedBooks } from "@/hooks/useApprovedBooks";
+import { motion } from "framer-motion";
 
 const PremiumSection = () => {
   const { data: approvedBooks, isLoading } = useApprovedBooks();
   const premiumBooks = (approvedBooks || []).filter((b) => b.price === "premium").slice(0, 3);
-
-  if (!isLoading && premiumBooks.length === 0) return null;
+  const isVisible = isLoading || premiumBooks.length > 0;
 
   return (
-    <section className="section-padding bg-secondary/30">
-      <div className="container-main">
+    <motion.section
+      initial={{ height: "auto", opacity: 1 }}
+      animate={{
+        height: isVisible ? "auto" : 0,
+        opacity: isVisible ? 1 : 0,
+        transitionEnd: {
+          display: isVisible ? "block" : "none",
+        },
+      }}
+      transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+      className="bg-secondary/30 overflow-hidden"
+    >
+      <div className="section-padding">
+        <div className="container-main">
         <div className="text-center mb-16">
           <p className="text-sm tracking-widest uppercase text-accent mb-4">
             Curated Collection
@@ -66,7 +78,8 @@ const PremiumSection = () => {
           </Link>
         </div>
       </div>
-    </section>
+      </div>
+    </motion.section>
   );
 };
 

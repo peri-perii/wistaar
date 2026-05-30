@@ -188,7 +188,7 @@ export default function TermsOfService() {
                 <ul className="ml-12 text-sm font-sans text-muted-foreground leading-relaxed space-y-2.5 list-none">
                   {[
                     'Authors retain full ownership of the intellectual property rights to content they submit.',
-                    'By submitting content, you grant Wistaar a non-exclusive, royalty-free license to host, display, and distribute your work on the platform.',
+                    'By submitting free content, you grant Wistaar a non-exclusive, royalty-free license to host, display, and distribute your work. Paid content sales are subject to a 65% royalty payout to the author, with a 35% platform share retained by Wistaar.',
                     'You represent and warrant that you own or have the necessary rights to submit the content, and that it does not infringe any third-party rights.',
                     'All submissions are subject to review and approval by our admin team before publication.',
                     'Wistaar reserves the right to reject or remove any content that violates these terms, applicable law, or our content guidelines.',

@@ -2,16 +2,29 @@ import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { useApprovedBooks } from "@/hooks/useApprovedBooks";
+import { motion } from "framer-motion";
 
 const FreeReadingSection = () => {
   const { data: approvedBooks, isLoading } = useApprovedBooks();
   const freeBooks = (approvedBooks || []).filter((b) => b.price === "free").slice(0, 4);
-
-  if (!isLoading && freeBooks.length === 0) return null;
+  const isVisible = isLoading || freeBooks.length > 0;
 
   return (
-    <section className="section-padding border-t border-border">
-      <div className="container-main">
+    <motion.section
+      initial={{ height: "auto", opacity: 1 }}
+      animate={{
+        height: isVisible ? "auto" : 0,
+        opacity: isVisible ? 1 : 0,
+        borderTopWidth: isVisible ? "1px" : "0px",
+        transitionEnd: {
+          display: isVisible ? "block" : "none",
+        },
+      }}
+      transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+      className="border-t border-border overflow-hidden"
+    >
+      <div className="section-padding">
+        <div className="container-main">
         <div className="text-center mb-16">
           <p className="text-sm tracking-widest uppercase text-accent mb-4">
             Open Access
@@ -66,7 +79,8 @@ const FreeReadingSection = () => {
           </Link>
         </div>
       </div>
-    </section>
+      </div>
+    </motion.section>
   );
 };
 
