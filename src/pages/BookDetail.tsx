@@ -417,7 +417,7 @@ export default function BookDetail() {
                                 <span className="flex items-center gap-0.5"><IndianRupee className="h-3 w-3" />{split.cashBeforeFee.toFixed(0)}</span>
                               </div>
                               <div className="flex justify-between text-muted-foreground">
-                                <span>Platform fee (10%)</span>
+                                <span>Platform fee</span>
                                 <span className="flex items-center gap-0.5"><IndianRupee className="h-3 w-3" />{split.platformFee.toFixed(2)}</span>
                               </div>
                               <div className="flex justify-between font-semibold text-foreground border-t border-border pt-1.5">

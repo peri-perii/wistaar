@@ -9,7 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { z } from 'zod';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Separator } from '@/components/ui/separator';
-import { PenLine, Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff } from 'lucide-react';
 
 const emailSchema = z.string().email('Please enter a valid email address');
 const passwordSchema = z.string().min(6, 'Password must be at least 6 characters');
@@ -146,10 +146,6 @@ export default function AuthorSignup() {
           </div>
 
           <div className="mb-8">
-            <div className="flex items-center gap-2 mb-4">
-              <PenLine className="w-5 h-5 text-accent" />
-              <span className="text-sm uppercase tracking-widest text-accent">Author Portal</span>
-            </div>
             <h1 className="text-3xl font-serif text-foreground mb-2">
               {isSignUp ? 'Create your author account' : 'Welcome back, author'}
             </h1>
