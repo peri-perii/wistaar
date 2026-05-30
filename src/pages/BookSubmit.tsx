@@ -130,7 +130,7 @@ export default function BookSubmit() {
     }
 
     if (!manuscriptFile) {
-      setErrors(prev => ({ ...prev, manuscript: 'Please upload your manuscript (PDF)' }));
+      setErrors(prev => ({ ...prev, manuscript: 'Please upload your manuscript (PDF or Word .docx)' }));
       return;
     }
 
@@ -371,7 +371,7 @@ export default function BookSubmit() {
             </div>
 
             <div className="space-y-2">
-              <Label>Manuscript (PDF) *</Label>
+              <Label>Manuscript (PDF or Word) *</Label>
               <label className="cursor-pointer block">
                 <div className={`border border-dashed rounded-lg p-6 text-center hover:border-accent/40 transition-colors ${
                   manuscriptFile ? 'border-accent/40 bg-accent/5' : 'border-border'
@@ -382,29 +382,42 @@ export default function BookSubmit() {
                       <p className="text-sm text-foreground font-medium">{manuscriptFile.name}</p>
                       <p className="text-xs text-muted-foreground mt-1">
                         {(manuscriptFile.size / (1024 * 1024)).toFixed(2)} MB
+                        {' · '}
+                        {manuscriptFile.name.toLowerCase().endsWith('.docx') || manuscriptFile.type.includes('word') || manuscriptFile.type.includes('officedocument')
+                          ? '📝 Word document — text extraction will work great!'
+                          : '📄 PDF'}
                       </p>
                     </>
                   ) : (
                     <>
                       <Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
                       <p className="text-sm text-muted-foreground">Click to upload your manuscript</p>
-                      <p className="text-xs text-muted-foreground mt-1">PDF only — Max 20MB</p>
+                      <div className="flex items-center justify-center gap-3 mt-2">
+                        <span className="flex items-center gap-1 text-xs text-muted-foreground bg-muted rounded-full px-2.5 py-1">
+                          📄 PDF
+                        </span>
+                        <span className="text-xs text-muted-foreground">or</span>
+                        <span className="flex items-center gap-1 text-xs text-muted-foreground bg-muted rounded-full px-2.5 py-1">
+                          📝 Word (.docx)
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-2">Max 50MB</p>
                     </>
                   )}
                 </div>
                 <input
                   type="file"
-                  accept="application/pdf"
+                  accept="application/pdf,.pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword,.docx,.doc"
                   onChange={handleManuscriptChange}
                   className="hidden"
                   disabled={isSubmitting}
                 />
               </label>
               {errors.manuscript && <p className="text-sm text-destructive">{errors.manuscript}</p>}
-              {/* PDF analysis result */}
+              {/* File analysis result */}
               {analyzingPdf && (
                 <p className="text-xs text-muted-foreground flex items-center gap-1">
-                  <span className="animate-spin">⏳</span> Analysing PDF...
+                  <span className="animate-spin">⏳</span> Analysing file...
                 </p>
               )}
               {!analyzingPdf && pdfAnalysis && (
@@ -421,7 +434,7 @@ export default function BookSubmit() {
                   <span>
                     {pdfAnalysis.hasText
                       ? `✅ Text-based PDF detected${pdfAnalysis.pageCount > 0 ? ` (~${pdfAnalysis.pageCount} pages)` : ''}. Chapter extraction will work great!`
-                      : '⚠️ This PDF may be scanned (image-only). Chapter extraction requires a text-based PDF. Consider converting it with an OCR tool first.'}
+                      : '⚠️ This PDF may be scanned (image-only). Chapter extraction requires a text-based PDF. Consider converting it with an OCR tool, or upload a Word (.docx) file instead.'}
                   </span>
                 </div>
               )}
