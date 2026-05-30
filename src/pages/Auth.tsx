@@ -149,13 +149,13 @@ export default function Auth() {
       <div className="flex-1 flex items-center justify-center px-6 py-12">
         <div className="w-full max-w-md">
           <div className="mb-12">
-            <a href="/" className="text-2xl font-display font-medium text-foreground">
+            <a href="/" className="text-2xl font-serif text-foreground">
               Wistaar
             </a>
           </div>
           
           <div className="mb-8">
-            <h1 className="text-3xl font-display font-medium text-foreground mb-2">
+            <h1 className="text-3xl font-serif text-foreground mb-2">
               {isSignUp ? 'Create your account' : 'Welcome back'}
             </h1>
             <p className="text-muted-foreground">
@@ -301,7 +301,7 @@ export default function Auth() {
       {/* Right side - Visual */}
       <div className="hidden lg:flex flex-1 bg-muted items-center justify-center p-12">
         <div className="max-w-md text-center">
-          <blockquote className="text-2xl font-display font-medium text-foreground leading-relaxed mb-6">
+          <blockquote className="text-2xl font-serif text-foreground leading-relaxed mb-6">
             "A reader lives a thousand lives before he dies. The man who never reads lives only one."
           </blockquote>
           <cite className="text-muted-foreground">— George R.R. Martin</cite>

@@ -61,6 +61,7 @@ export default {
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
         serif: ['Instrument Serif', 'Georgia', 'serif'],
+        display: ['Instrument Serif', 'Georgia', 'serif'],
       },
       borderRadius: {
         lg: "var(--radius)",
