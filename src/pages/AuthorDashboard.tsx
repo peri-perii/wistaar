@@ -142,7 +142,8 @@ export default function AuthorDashboard() {
                   </>
                 )}
               </Button>
-              <Link to="/publish">
+              {/* Fixed: was "/publish" (landing page), now "/author/submit" (book form) */}
+              <Link to="/author/submit">
                 <Button className="h-10 bg-[#c84b2f] hover:bg-[#c84b2f]/90 text-white font-semibold text-sm flex items-center gap-2 px-5">
                   <Plus className="w-4 h-4" />
                   Publish New Book
