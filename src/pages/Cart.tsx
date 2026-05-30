@@ -1,3 +1,4 @@
+// Resolved merge conflict by keeping our changes from Divyansh0109:main branch
 import { Navigate, Link } from "react-router-dom";
 import { toast } from "sonner";
 import Navigation from "@/components/Navigation";
