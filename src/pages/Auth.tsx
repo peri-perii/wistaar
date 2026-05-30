@@ -99,35 +99,6 @@ export default function Auth() {
     }
   };
 
-  const handleGoogleSignIn = async () => {
-    setIsLoading(true);
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/`,
-          queryParams: { access_type: 'offline', prompt: 'consent' },
-        },
-      });
-      if (error) {
-        toast({
-          title: 'Google sign in failed',
-          description: error.message,
-          variant: 'destructive',
-        });
-        setIsLoading(false);
-      }
-      // On success, browser redirects — don't setIsLoading(false) here
-    } catch (err) {
-      toast({
-        title: 'Google sign in failed',
-        description: 'Something went wrong. Please try again.',
-        variant: 'destructive',
-      });
-      setIsLoading(false);
-    }
-  };
-
   const toggleMode = () => {
     setIsSignUp(!isSignUp);
     setErrors({});
