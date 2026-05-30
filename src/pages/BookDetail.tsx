@@ -1,5 +1,6 @@
 import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { mockBooks } from "@/data/books";
 import { useApprovedBooks } from "@/hooks/useApprovedBooks";
 import { useBookChapters } from "@/hooks/useBookChapters";
@@ -39,6 +40,7 @@ export default function BookDetail() {
   const [paying, setPaying] = useState(false);
   const [wistiesBalance, setWistiesBalance] = useState(0);
   const [useWisties, setUseWisties] = useState(false);
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     if (!user) return;
@@ -444,9 +446,12 @@ export default function BookDetail() {
                                       p_cash_amount: split.cashBeforeFee,
                                     });
                                     if (error) throw error;
+                                    // Invalidate cache so library & buy button refresh immediately
+                                    queryClient.invalidateQueries({ queryKey: ['purchases'] });
+                                    queryClient.invalidateQueries({ queryKey: ['has-purchased'] });
                                     setWistiesBalance(prev => prev - split.wistiesApplied);
                                     if (appliedCoupon) await incrementUsage(appliedCoupon.id);
-                                    toast.success(`Purchased! ₹${split.wistiesApplied} Wisties + ₹${split.cashTotal.toFixed(0)} cash. Enjoy reading!`);
+                                    toast.success(`Purchased! ₹${split.wistiesApplied} Wisties + ₹${split.cashTotal.toFixed(0)} cash. Book added to your library!`);
                                   } else {
                                     await initiatePayment.mutateAsync({
                                       bookId: book.id,

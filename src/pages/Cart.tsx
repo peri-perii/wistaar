@@ -13,6 +13,7 @@ import { useInitiatePayment } from "@/hooks/usePurchases";
 import { useCoupon } from "@/hooks/useCoupon";
 import { calculateSplitPayment, WISTIES_THRESHOLD } from "@/lib/pricing";
 import { useState, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -188,6 +189,8 @@ function CartBookItem({
   // Split payment breakdown
   const split = calculateSplitPayment(finalAmount, wistiesBalance);
 
+  const queryClient = useQueryClient();
+
   const handleBuy = async () => {
     setPayingBookId(book.id);
     try {
@@ -202,10 +205,14 @@ function CartBookItem({
 
         if (error) throw error;
 
+        // Invalidate purchase cache so library & hasPurchased update immediately
+        queryClient.invalidateQueries({ queryKey: ['purchases'] });
+        queryClient.invalidateQueries({ queryKey: ['has-purchased'] });
+
         onWistiesUpdate(wistiesBalance - split.wistiesApplied);
         if (appliedCoupon) await incrementUsage(appliedCoupon.id);
         removeFromCart.mutate(book.id);
-        toast.success(`Purchased! ₹${split.wistiesApplied} Wisties + ₹${split.cashTotal.toFixed(0)} cash. Enjoy reading!`);
+        toast.success(`Purchased! ₹${split.wistiesApplied} Wisties + ₹${split.cashTotal.toFixed(0)} cash. Book added to your library!`);
       } else {
         // Pure cash payment
         await initiatePayment.mutateAsync({ bookId: book.id, bookTitle: book.title, amount: finalAmount });

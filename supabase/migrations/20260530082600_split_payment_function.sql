@@ -1,15 +1,16 @@
 -- ============================================================
--- MIGRATION: Hybrid Wisties + Cash Split Payment Function
+-- MIGRATION: Fix purchase_book_split_payment
 -- ============================================================
--- Atomic function: debits Wisties and records a split purchase
--- in a single transaction. The cash portion is assumed settled
--- (mock for now; wire real payment gateway call before going live).
+-- Bug fix: old version used ON CONFLICT DO NOTHING which silently
+-- skipped the purchase insert if any prior row existed.
+-- Also wrapped the notification insert in a sub-block so a
+-- notification failure can never roll back the purchase.
 
 CREATE OR REPLACE FUNCTION public.purchase_book_split_payment(
-  p_book_id      UUID,
-  p_book_title   TEXT,
-  p_wisties_amount NUMERIC,  -- amount covered by Wisties
-  p_cash_amount  NUMERIC     -- amount the user paid in cash (after platform fee)
+  p_book_id        UUID,
+  p_book_title     TEXT,
+  p_wisties_amount NUMERIC,
+  p_cash_amount    NUMERIC
 )
 RETURNS VOID
 LANGUAGE plpgsql
@@ -36,24 +37,36 @@ BEGIN
     );
   END IF;
 
-  -- Record the completed purchase (upsert so duplicate calls are idempotent)
+  -- Record the completed purchase.
+  -- DO UPDATE (not DO NOTHING) so a pre-existing pending/failed row
+  -- gets promoted to completed instead of being silently skipped.
   INSERT INTO public.book_purchases
     (user_id, book_id, amount, payment_status, transaction_id, payu_txnid)
   VALUES
     (v_user_id, p_book_id, v_total, 'completed', v_tx_id, v_tx_id)
-  ON CONFLICT (user_id, book_id) DO NOTHING;
+  ON CONFLICT (user_id, book_id)
+    DO UPDATE SET
+      payment_status = 'completed',
+      amount         = EXCLUDED.amount,
+      transaction_id = EXCLUDED.transaction_id,
+      payu_txnid     = EXCLUDED.payu_txnid;
 
-  -- In-app notification
-  INSERT INTO public.notifications (user_id, title, message, type)
-  VALUES (
-    v_user_id,
-    '📖 "' || p_book_title || '" is now in your library!',
-    CASE
-      WHEN p_wisties_amount > 0
-        THEN 'Paid ₹' || p_wisties_amount::text || ' with Wisties + ₹' || p_cash_amount::text || ' cash. Happy reading!'
-      ELSE 'Payment of ₹' || p_cash_amount::text || ' successful. Happy reading!'
-    END,
-    'book_purchased'
-  );
+  -- In-app notification (best-effort; must not block the purchase)
+  BEGIN
+    INSERT INTO public.notifications (user_id, title, message, type)
+    VALUES (
+      v_user_id,
+      '📖 "' || p_book_title || '" is now in your library!',
+      CASE
+        WHEN p_wisties_amount > 0
+          THEN 'Paid ₹' || p_wisties_amount::text || ' with Wisties + ₹' || p_cash_amount::text || ' cash. Happy reading!'
+        ELSE 'Payment of ₹' || p_cash_amount::text || ' successful. Happy reading!'
+      END,
+      'book_purchased'
+    );
+  EXCEPTION WHEN OTHERS THEN
+    -- Notification failure must not roll back the purchase
+    NULL;
+  END;
 END;
 $$;
