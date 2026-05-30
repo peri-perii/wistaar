@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -6,289 +6,312 @@ import Navigation from '@/components/Navigation';
 import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, BookOpen, Clock, CheckCircle, XCircle, Trash2, BarChart3, User } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { useAuthorEarnings } from '@/hooks/useAuthorEarnings';
-import EarningsOverview from '@/components/author/EarningsOverview';
-import EarningsBreakdown from '@/components/author/EarningsBreakdown';
-import RecentSales from '@/components/author/RecentSales';
+import { Plus, BookOpen, Star, TrendingUp, Users, DollarSign, Loader2, Edit3, X, Sparkles, Award } from 'lucide-react';
+import { useAuthorDashboardData } from '@/hooks/useAuthorDashboardData';
 import AuthorProfileEdit from '@/components/author/AuthorProfileEdit';
 
-interface BookSubmission {
-  id: string;
-  title: string;
-  description: string;
-  genre: string;
-  status: string;
-  submitted_at: string;
-  admin_feedback: string | null;
-  cover_image_url: string | null;
-}
-
 export default function AuthorDashboard() {
-  const { user, loading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [submissions, setSubmissions] = useState<BookSubmission[]>([]);
   const [isAuthor, setIsAuthor] = useState(false);
-  const [checking, setChecking] = useState(true);
-  const [activeTab, setActiveTab] = useState<'submissions' | 'earnings' | 'profile'>('earnings');
-  const { data: earningsData, isLoading: earningsLoading } = useAuthorEarnings();
+  const [checkingRole, setCheckingRole] = useState(true);
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+
+  // Fetch author specific dashboard data from custom hook
+  const { data: dashboardData, isLoading: dataLoading, refetch } = useAuthorDashboardData();
 
   useEffect(() => {
-    if (!loading && !user) {
+    if (!authLoading && !user) {
       navigate('/author/signup');
       return;
     }
     if (user) {
-      checkAuthorAndLoad();
+      checkAuthorRole();
     }
-  }, [user, loading]);
+  }, [user, authLoading]);
 
-  const checkAuthorAndLoad = async () => {
+  const checkAuthorRole = async () => {
     if (!user) return;
-
-    // Check author role
-    const { data: roles } = await supabase
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', user.id)
-      .eq('role', 'author');
-
-    if (!roles || roles.length === 0) {
-      // Check if pending signup
-      const pending = localStorage.getItem('pending_author_signup');
-      if (pending) {
-        // Assign author role
-        await supabase.from('user_roles').insert({ user_id: user.id, role: 'author' as any });
-        const { name } = JSON.parse(pending);
-        if (name) {
-          await supabase.from('profiles').update({ display_name: name }).eq('user_id', user.id);
-        }
-        localStorage.removeItem('pending_author_signup');
-        setIsAuthor(true);
-      } else {
-        toast({ title: 'Access denied', description: 'You need an author account to access this page.', variant: 'destructive' });
-        navigate('/author/signup');
-        return;
-      }
-    } else {
-      setIsAuthor(true);
-    }
-
-    // Load submissions
-    const { data: subs } = await supabase
-      .from('book_submissions')
-      .select('*')
-      .eq('author_id', user.id)
-      .order('submitted_at', { ascending: false });
-
-    if (subs) setSubmissions(subs as unknown as BookSubmission[]);
-    setChecking(false);
-  };
-
-  const handleDelete = async (sub: BookSubmission) => {
     try {
-      const { error } = await supabase.from('book_submissions').delete().eq('id', sub.id);
+      const { data: roles, error } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .eq('role', 'author');
+
       if (error) throw error;
-      toast({ title: 'Book removed', description: `"${sub.title}" has been removed.` });
-      setSubmissions(prev => prev.filter(s => s.id !== sub.id));
+
+      if (!roles || roles.length === 0) {
+        toast({
+          title: 'Author Profile Required',
+          description: 'You need an author account to view the dashboard.',
+          variant: 'destructive',
+        });
+        navigate('/profile');
+      } else {
+        setIsAuthor(true);
+      }
     } catch (err: any) {
-      toast({ title: 'Delete failed', description: err.message, variant: 'destructive' });
+      console.error(err);
+    } finally {
+      setCheckingRole(false);
     }
   };
 
-  const statusConfig = {
-    pending: { icon: Clock, label: 'Pending Review', color: 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20' },
-    approved: { icon: CheckCircle, label: 'Approved', color: 'bg-green-500/10 text-green-600 border-green-500/20' },
-    rejected: { icon: XCircle, label: 'Rejected', color: 'bg-red-500/10 text-red-600 border-red-500/20' },
-  };
+  // Determine "Most Sold" and "Top Rated" books
+  const books = dashboardData?.books || [];
+  
+  const mostSoldBook = useMemo(() => {
+    if (books.length === 0) return null;
+    const soldBooks = books.filter(b => b.copiesSold > 0);
+    if (soldBooks.length === 0) return null;
+    return soldBooks.reduce((top, current) => (current.copiesSold > top.copiesSold ? current : top));
+  }, [books]);
 
-  if (loading || checking) {
+  const topRatedBook = useMemo(() => {
+    if (books.length === 0) return null;
+    const ratedBooks = books.filter(b => b.rating > 0);
+    if (ratedBooks.length === 0) return null;
+    return ratedBooks.reduce((top, current) => (current.rating > top.rating ? current : top));
+  }, [books]);
+
+  if (authLoading || checkingRole || dataLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-muted-foreground">Loading...</div>
+      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
       </div>
     );
   }
 
+  if (!isAuthor || !dashboardData) return null;
+
+  const { profile, stats } = dashboardData;
+  const initials = (profile.displayName || profile.username || "A").slice(0, 2).toUpperCase();
+
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-[#0a0a0a] text-foreground">
       <Navigation />
-      <main className="pt-24 pb-20 px-6">
-        <div className="max-w-6xl mx-auto">
-          <div className="flex items-center justify-between mb-10">
-            <div>
-              <h1 className="font-serif text-3xl md:text-4xl text-foreground mb-2">Author Dashboard</h1>
-              <p className="text-muted-foreground">Manage submissions and track earnings</p>
-            </div>
-            <Link to="/author/submit">
-              <Button className="gap-2">
-                <Plus className="w-4 h-4" />
-                Submit New Book
-              </Button>
-            </Link>
-          </div>
+      <main className="pt-24 pb-20 px-4 md:px-6">
+        <div className="max-w-6xl mx-auto space-y-10">
 
-          {/* Tabs */}
-          <div className="flex gap-2 mb-8 border-b border-border">
-            <button
-              onClick={() => setActiveTab('earnings')}
-              className={`px-4 py-2 font-medium border-b-2 transition-colors ${
-                activeTab === 'earnings'
-                  ? 'border-accent text-foreground'
-                  : 'border-transparent text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              <BarChart3 className="w-4 h-4 inline mr-2" />
-              Earnings & Analytics
-            </button>
-            <button
-              onClick={() => setActiveTab('submissions')}
-              className={`px-4 py-2 font-medium border-b-2 transition-colors ${
-                activeTab === 'submissions'
-                  ? 'border-accent text-foreground'
-                  : 'border-transparent text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              <BookOpen className="w-4 h-4 inline mr-2" />
-              My Submissions
-            </button>
-            <button
-              onClick={() => setActiveTab('profile')}
-              className={`px-4 py-2 font-medium border-b-2 transition-colors ${
-                activeTab === 'profile'
-                  ? 'border-accent text-foreground'
-                  : 'border-transparent text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              <User className="w-4 h-4 inline mr-2" />
-              Edit Pen Profile
-            </button>
-          </div>
-
-          {/* Earnings Tab */}
-          {activeTab === 'earnings' && (
-            <div>
-              <EarningsOverview 
-                stats={{
-                  totalEarnings: earningsData?.totalEarnings || 0,
-                  totalSales: earningsData?.totalSales || 0,
-                  topBook: earningsData?.topBook || null,
-                }}
-                isLoading={earningsLoading}
-              />
-
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2">
-                  <EarningsBreakdown
-                    bookEarnings={earningsData?.bookEarnings || []}
-                    isLoading={earningsLoading}
-                  />
+          {/* Author Header */}
+          <div className="flex flex-col md:flex-row items-center md:items-start justify-between gap-6 pb-6 border-b border-border/30">
+            <div className="flex flex-col md:flex-row items-center md:items-start gap-6 text-center md:text-left">
+              <Avatar className="w-20 h-20 md:w-24 md:h-24 border border-border/40 shadow-sm shrink-0">
+                <AvatarImage src={profile.avatarUrl} alt={profile.displayName} />
+                <AvatarFallback className="bg-[#c84b2f]/10 text-[#c84b2f] text-xl font-serif">
+                  {initials}
+                </AvatarFallback>
+              </Avatar>
+              <div className="space-y-2">
+                <div className="flex flex-wrap items-center justify-center md:justify-start gap-2">
+                  <h1 className="font-serif text-3xl font-medium tracking-tight text-foreground">{profile.displayName}</h1>
+                  <Badge variant="outline" className="text-[10px] border-[#c84b2f]/20 text-[#c84b2f] bg-[#c84b2f]/5 tracking-widest uppercase py-0.5">
+                    Author Partner
+                  </Badge>
                 </div>
-                <div>
-                  <RecentSales />
-                </div>
+                {profile.username && (
+                  <p className="text-sm font-medium text-[#c84b2f]">@{profile.username}</p>
+                )}
+                <p className="text-sm text-muted-foreground/90 max-w-xl leading-relaxed whitespace-pre-line">
+                  {profile.bio || "Write a brief description of your background and style by clicking Edit Profile."}
+                </p>
               </div>
             </div>
+
+            {/* Actions */}
+            <div className="flex items-center gap-3 shrink-0 pt-2">
+              <Button
+                variant="outline"
+                onClick={() => setIsEditingProfile(!isEditingProfile)}
+                className="h-10 border-border/40 font-semibold text-sm flex items-center gap-2 hover:bg-muted/10"
+              >
+                {isEditingProfile ? (
+                  <>
+                    <X className="w-4 h-4" />
+                    Close Editor
+                  </>
+                ) : (
+                  <>
+                    <Edit3 className="w-4 h-4" />
+                    Edit Profile
+                  </>
+                )}
+              </Button>
+              <Link to="/publish">
+                <Button className="h-10 bg-[#c84b2f] hover:bg-[#c84b2f]/90 text-white font-semibold text-sm flex items-center gap-2 px-5">
+                  <Plus className="w-4 h-4" />
+                  Publish New Book
+                </Button>
+              </Link>
+            </div>
+          </div>
+
+          {/* Profile Edit Drawer Component */}
+          {isEditingProfile && (
+            <div className="animate-in fade-in slide-in-from-top-4 duration-300">
+              <AuthorProfileEdit 
+                userId={user!.id} 
+                onSuccess={() => {
+                  refetch();
+                  setIsEditingProfile(false);
+                }} 
+              />
+            </div>
           )}
 
-          {/* Submissions Tab */}
-          {activeTab === 'submissions' && (
-            <>
-              {submissions.length === 0 ? (
-                <Card className="border-dashed">
-                  <CardContent className="flex flex-col items-center justify-center py-16">
-                    <BookOpen className="w-12 h-12 text-muted-foreground/40 mb-4" />
-                    <h3 className="font-serif text-xl text-foreground mb-2">No submissions yet</h3>
-                    <p className="text-muted-foreground mb-6">Submit your first book to get started.</p>
-                    <Link to="/author/submit">
-                      <Button className="gap-2">
-                        <Plus className="w-4 h-4" />
-                        Submit Your First Book
-                      </Button>
-                    </Link>
+          {/* Stats Row */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {[
+              {
+                title: 'Total Books',
+                value: stats.totalBooks.toString(),
+                icon: BookOpen,
+                color: 'text-muted-foreground',
+                bgColor: 'bg-muted/10',
+                subtext: 'Approved submissions',
+              },
+              {
+                title: 'Total Sales',
+                value: stats.totalSales.toString(),
+                icon: TrendingUp,
+                color: 'text-emerald-500',
+                bgColor: 'bg-emerald-500/10',
+                subtext: 'Copies purchased by readers',
+              },
+              {
+                title: 'Total Earnings',
+                value: `₹${stats.totalEarnings.toFixed(2)}`,
+                icon: DollarSign,
+                color: 'text-[#c84b2f]',
+                bgColor: 'bg-[#c84b2f]/10',
+                subtext: '65% of net catalog revenue',
+              },
+              {
+                title: 'Followers',
+                value: stats.followers.toString(),
+                icon: Users,
+                color: 'text-blue-500',
+                bgColor: 'bg-blue-500/10',
+                subtext: 'Engaged readers following',
+              },
+            ].map((stat) => {
+              const Icon = stat.icon;
+              return (
+                <Card key={stat.title} className="border-border/30 bg-[#121212]/10 hover:border-[#c84b2f]/20 transition-all duration-300 shadow-sm">
+                  <CardContent className="p-5 flex items-center justify-between">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">{stat.title}</p>
+                      <p className="text-2xl font-serif font-bold text-foreground truncate mb-0.5">{stat.value}</p>
+                      <p className="text-[10px] text-muted-foreground/60 truncate font-sans">{stat.subtext}</p>
+                    </div>
+                    <div className={`${stat.bgColor} p-3 rounded-lg ml-2 shrink-0 flex items-center justify-center`}>
+                      <Icon className={`${stat.color} h-5 w-5`} />
+                    </div>
                   </CardContent>
                 </Card>
-              ) : (
-                <div className="grid gap-4">
-                  {submissions.map((sub) => {
-                    const config = statusConfig[sub.status as keyof typeof statusConfig] || statusConfig.pending;
-                    const StatusIcon = config.icon;
-                    return (
-                      <Card key={sub.id} className="hover:border-accent/30 transition-colors">
-                        <CardContent className="flex items-center gap-6 p-6">
-                          {sub.cover_image_url ? (
+              );
+            })}
+          </div>
+
+          {/* Books Section */}
+          <div className="space-y-6">
+            <div className="flex items-center justify-between border-b border-border/20 pb-3">
+              <h2 className="font-serif text-2xl text-foreground font-medium flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-[#c84b2f]" />
+                Your Catalog
+              </h2>
+              <span className="text-xs text-muted-foreground font-mono">{books.length} published books</span>
+            </div>
+
+            {books.length === 0 ? (
+              <div className="text-center py-20 border border-dashed border-border/30 rounded-xl bg-[#121212]/10">
+                <BookOpen className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
+                <h3 className="font-serif text-xl font-medium text-foreground mb-2">No published books yet</h3>
+                <p className="text-muted-foreground text-sm max-w-sm mx-auto mb-6">
+                  Submit your manuscript, pricing, and cover. Once approved by the admin, it will instantly list here.
+                </p>
+                <Link to="/publish">
+                  <Button className="bg-[#c84b2f] hover:bg-[#c84b2f]/90 text-white font-semibold">
+                    Submit Your First Book
+                  </Button>
+                </Link>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {books.map((book) => {
+                  const isTopSeller = mostSoldBook && mostSoldBook.id === book.id && book.copiesSold > 0;
+                  const isHighestRated = topRatedBook && topRatedBook.id === book.id && book.rating > 0;
+
+                  return (
+                    <Card key={book.id} className="border-border/30 bg-[#0d0d0d] hover:border-[#c84b2f]/20 transition-all duration-300 flex flex-col justify-between overflow-hidden shadow-sm relative group">
+                      
+                      {/* Top Badges overlay */}
+                      <div className="absolute top-3 left-3 flex flex-col gap-1.5 z-10">
+                        {isTopSeller && (
+                          <Badge className="bg-emerald-500 hover:bg-emerald-600 text-white text-[9px] tracking-widest uppercase font-extrabold flex items-center gap-1 border-0 shadow-md h-5 px-2">
+                            <TrendingUp className="w-2.5 h-2.5" />
+                            Most Sold
+                          </Badge>
+                        )}
+                        {isHighestRated && (
+                          <Badge className="bg-amber-500 hover:bg-amber-600 text-white text-[9px] tracking-widest uppercase font-extrabold flex items-center gap-1 border-0 shadow-md h-5 px-2">
+                            <Award className="w-2.5 h-2.5" />
+                            Top Rated
+                          </Badge>
+                        )}
+                      </div>
+
+                      <CardContent className="p-5 flex gap-4">
+                        {/* Cover image or placeholder */}
+                        <div className="w-18 h-24 bg-muted rounded-md overflow-hidden relative shrink-0 shadow-sm">
+                          {book.coverUrl ? (
                             <img
-                              src={sub.cover_image_url}
-                              alt={sub.title}
-                              className="w-16 h-20 object-cover rounded"
+                              src={book.coverUrl}
+                              alt={book.title}
+                              className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                             />
                           ) : (
-                            <div className="w-16 h-20 bg-muted rounded flex items-center justify-center">
-                              <BookOpen className="w-6 h-6 text-muted-foreground/40" />
+                            <div className="absolute inset-0 flex items-center justify-center text-muted-foreground/30">
+                              <BookOpen className="w-6 h-6" />
                             </div>
                           )}
-                          <div className="flex-1 min-w-0">
-                            <h3 className="font-serif text-lg text-foreground mb-1 truncate">{sub.title}</h3>
-                            <p className="text-sm text-muted-foreground mb-2">{sub.genre}</p>
-                            <p className="text-sm text-muted-foreground truncate">{sub.description}</p>
-                          </div>
-                          <div className="flex flex-col items-end gap-2 shrink-0">
-                            <Badge variant="outline" className={config.color}>
-                              <StatusIcon className="w-3 h-3 mr-1" />
-                              {config.label}
-                            </Badge>
-                            <span className="text-xs text-muted-foreground">
-                              {new Date(sub.submitted_at).toLocaleDateString()}
-                            </span>
-                            <Link to={`/reader/${sub.id}`}>
-                              <Button variant="outline" size="sm" className="gap-1 h-7 text-xs border-accent/20 hover:bg-accent/5 hover:text-accent">
-                                <BookOpen className="w-3.5 h-3.5" />
-                                Preview Layout
-                              </Button>
-                            </Link>
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button variant="ghost" size="sm" className="gap-1 h-7 text-xs text-destructive hover:text-destructive">
-                                  <Trash2 className="w-3 h-3" />
-                                  Remove
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Remove "{sub.title}"?</AlertDialogTitle>
-                                  <AlertDialogDescription>This will permanently remove this book. This action cannot be undone.</AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                  <AlertDialogAction onClick={() => handleDelete(sub)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Remove</AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          </div>
-                        </CardContent>
-                        {sub.admin_feedback && sub.status === 'rejected' && (
-                          <div className="px-6 pb-4">
-                            <div className="bg-destructive/5 border border-destructive/10 rounded p-3">
-                              <p className="text-sm text-destructive"><strong>Feedback:</strong> {sub.admin_feedback}</p>
-                            </div>
-                          </div>
-                        )}
-                      </Card>
-                    );
-                  })}
-                </div>
-              )}
-            </>
-          )}
+                        </div>
 
-          {/* Profile Tab */}
-          {activeTab === 'profile' && user && (
-            <AuthorProfileEdit userId={user.id} />
-          )}
+                        {/* Text Detail */}
+                        <div className="flex-1 min-w-0 flex flex-col justify-between">
+                          <div className="space-y-0.5">
+                            <h3 className="font-serif text-lg font-bold text-foreground leading-snug line-clamp-1 group-hover:text-[#c84b2f] transition-colors">{book.title}</h3>
+                            <p className="text-xs text-muted-foreground font-sans uppercase tracking-wider">{book.genre}</p>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-3 pt-2 text-xs font-mono text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
+                              {book.rating.toFixed(1)}
+                            </span>
+                            <span>·</span>
+                            <span>{book.copiesSold} sold</span>
+                          </div>
+                        </div>
+                      </CardContent>
+
+                      {/* Footer Earnings Split Details */}
+                      <div className="bg-[#121212]/30 border-t border-border/20 p-4 flex items-center justify-between text-xs font-mono">
+                        <span className="text-muted-foreground">Net Earnings (65%)</span>
+                        <span className="font-serif font-bold text-lg text-[#c84b2f]">₹{book.earnings.toFixed(2)}</span>
+                      </div>
+
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
         </div>
       </main>
       <Footer />

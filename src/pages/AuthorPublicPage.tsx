@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { BookOpen, Users, Star, Award, TrendingUp, Sparkles, AlertCircle } from "lucide-react";
+import { BookOpen, Users, Star, Award, TrendingUp, Sparkles, AlertCircle, Loader2 } from "lucide-react";
 import ApprovedBookCard from "@/components/ApprovedBookCard";
 import type { ApprovedBook } from "@/hooks/useApprovedBooks";
 
@@ -23,7 +23,7 @@ interface AuthorProfileData {
   username: string | null;
 }
 
-export default function AuthorProfile() {
+export default function AuthorPublicPage() {
   const { username } = useParams<{ username: string }>();
   const { user: currentUser } = useAuth();
   const { toast } = useToast();
@@ -80,7 +80,7 @@ export default function AuthorProfile() {
         price: s.price > 0 ? "premium" : "free",
         priceAmount: Number(s.price),
         freeChapters: s.free_chapters,
-        rating: Number(s.rating),
+        rating: Number(s.rating || 0),
         coverColor: s.cover_color,
         coverImageUrl: s.cover_image_url,
         description: s.description,
@@ -207,7 +207,7 @@ export default function AuthorProfile() {
     }
   };
 
-  // Find most rated book
+  // Find highest rated book
   const mostRatedBook = useMemo(() => {
     if (books.length === 0) return null;
     return books.reduce((top, current) => (current.rating > top.rating ? current : top));
@@ -221,22 +221,22 @@ export default function AuthorProfile() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-muted-foreground">Loading author profile...</div>
+      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
       </div>
     );
   }
 
   if (!author) {
     return (
-      <div className="min-h-screen bg-background flex flex-col">
+      <div className="min-h-screen bg-[#0a0a0a] flex flex-col">
         <Navigation />
         <main className="flex-1 flex flex-col items-center justify-center py-20 px-6">
-          <AlertCircle className="w-12 h-12 text-destructive mb-4" />
+          <AlertCircle className="w-12 h-12 text-[#c84b2f] mb-4" />
           <h2 className="font-serif text-2xl text-foreground mb-2">Author Not Found</h2>
-          <p className="text-muted-foreground mb-6">The username @{username} does not exist or is not registered as an author.</p>
+          <p className="text-muted-foreground text-sm mb-6">The username @{username} does not exist or is not registered as an author.</p>
           <Link to="/explore">
-            <Button>Explore Books</Button>
+            <Button className="bg-[#c84b2f] hover:bg-[#c84b2f]/90 text-white font-semibold">Explore Books</Button>
           </Link>
         </main>
         <Footer />
@@ -244,93 +244,98 @@ export default function AuthorProfile() {
     );
   }
 
+  const initials = (author.display_name || author.username || "A").slice(0, 2).toUpperCase();
+
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-[#0a0a0a] text-foreground">
       <Navigation />
-      <main className="pt-24 pb-20 px-6">
-        <div className="max-w-6xl mx-auto">
-          {/* Author Banner Card */}
-          <Card className="border border-border/60 bg-gradient-to-r from-secondary/30 via-background to-secondary/15 mb-12 overflow-hidden shadow-sm">
-            <CardContent className="p-8 md:p-10 flex flex-col md:flex-row items-center md:items-start justify-between gap-8">
-              <div className="flex flex-col md:flex-row items-center md:items-start gap-6 text-center md:text-left">
-                <Avatar className="w-24 h-24 md:w-28 md:h-28 border-2 border-primary/20 shadow-md">
-                  <AvatarImage src={author.avatar_url || undefined} alt={author.display_name || ""} />
-                  <AvatarFallback className="bg-accent text-accent-foreground text-2xl font-serif">
-                    {(author.display_name || author.username || "A").slice(0, 2).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="space-y-3">
-                  <div>
-                    <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 mb-1.5">
-                      <h1 className="font-serif text-3xl text-foreground font-medium">{author.display_name || "Unknown Author"}</h1>
-                      <Badge variant="outline" className="text-xs border-accent/30 text-accent font-semibold tracking-wider uppercase">
-                        Author
-                      </Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground">@{author.username}</p>
-                  </div>
-                  <p className="text-foreground/80 text-sm max-w-xl leading-relaxed whitespace-pre-line">
-                    {author.bio || "No bio added yet."}
-                  </p>
-                  <div className="flex flex-wrap items-center justify-center md:justify-start gap-x-6 gap-y-2 pt-2 text-sm text-muted-foreground">
-                    <span className="flex items-center gap-1.5 font-medium text-foreground">
-                      <Users className="w-4 h-4 text-muted-foreground" />
-                      {followerCount} <span className="text-muted-foreground font-normal">followers</span>
-                    </span>
-                    <span className="flex items-center gap-1.5 font-medium text-foreground">
-                      <BookOpen className="w-4 h-4 text-muted-foreground" />
-                      {books.length} <span className="text-muted-foreground font-normal">books published</span>
-                    </span>
-                  </div>
+      <main className="pt-24 pb-20 px-4 md:px-6">
+        <div className="max-w-6xl mx-auto space-y-10">
+          
+          {/* Public Profile Header Card */}
+          <div className="flex flex-col md:flex-row items-center md:items-start justify-between gap-6 pb-6 border-b border-border/30">
+            <div className="flex flex-col md:flex-row items-center md:items-start gap-6 text-center md:text-left">
+              <Avatar className="w-20 h-20 md:w-24 md:h-24 border border-border/40 shadow-sm shrink-0">
+                <AvatarImage src={author.avatar_url || undefined} alt={author.display_name || ""} />
+                <AvatarFallback className="bg-[#c84b2f]/10 text-[#c84b2f] text-xl font-serif">
+                  {initials}
+                </AvatarFallback>
+              </Avatar>
+              <div className="space-y-2">
+                <div className="flex flex-wrap items-center justify-center md:justify-start gap-2">
+                  <h1 className="font-serif text-3xl font-medium tracking-tight text-foreground">{author.display_name || "Unknown Author"}</h1>
+                  <Badge variant="outline" className="text-[10px] border-[#c84b2f]/20 text-[#c84b2f] bg-[#c84b2f]/5 tracking-widest uppercase py-0.5">
+                    Author
+                  </Badge>
+                </div>
+                <p className="text-sm font-medium text-[#c84b2f]">@{author.username}</p>
+                <p className="text-sm text-muted-foreground/90 max-w-xl leading-relaxed whitespace-pre-line">
+                  {author.bio || "No biography provided."}
+                </p>
+                
+                {/* Followers & Counts */}
+                <div className="flex flex-wrap items-center justify-center md:justify-start gap-x-5 gap-y-1 pt-1 text-xs text-muted-foreground">
+                  <span className="flex items-center gap-1 font-medium text-foreground">
+                    <Users className="w-3.5 h-3.5 text-muted-foreground" />
+                    {followerCount} <span className="text-muted-foreground font-normal">followers</span>
+                  </span>
+                  <span>·</span>
+                  <span className="flex items-center gap-1 font-medium text-foreground">
+                    <BookOpen className="w-3.5 h-3.5 text-muted-foreground" />
+                    {books.length} <span className="text-muted-foreground font-normal">books published</span>
+                  </span>
                 </div>
               </div>
+            </div>
 
-              {/* Follow action button */}
-              {(!currentUser || currentUser.id !== author.user_id) && (
-                <div className="shrink-0 pt-2">
-                  <Button
-                    onClick={handleFollowToggle}
-                    disabled={actionLoading}
-                    variant={isFollowing ? "outline" : "default"}
-                    className="w-36 font-semibold"
-                  >
-                    {isFollowing ? "Unfollow" : "Follow"}
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+            {/* Follow/Unfollow Button */}
+            {(!currentUser || currentUser.id !== author.user_id) && (
+              <div className="shrink-0 pt-2">
+                <Button
+                  onClick={handleFollowToggle}
+                  disabled={actionLoading}
+                  variant={isFollowing ? "outline" : "default"}
+                  className={`w-36 h-10 font-semibold text-sm ${
+                    isFollowing 
+                      ? "border-border/40 hover:bg-muted/10" 
+                      : "bg-[#c84b2f] hover:bg-[#c84b2f]/90 text-white"
+                  }`}
+                >
+                  {isFollowing ? "Unfollow" : "Follow"}
+                </Button>
+              </div>
+            )}
+          </div>
 
           {/* Highlights Section */}
           {(mostSoldBook || (mostRatedBook && mostRatedBook.rating > 0)) && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {mostSoldBook && (
-                <Card className="border-emerald-500/20 bg-emerald-500/[0.02] flex items-center p-6 gap-4 shadow-sm">
-                  <div className="w-12 h-12 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-600 shrink-0">
-                    <TrendingUp className="w-6 h-6" />
+                <Card className="border-border/30 bg-[#121212]/10 p-5 flex items-center gap-4 shadow-sm">
+                  <div className="w-10 h-10 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-500 shrink-0">
+                    <TrendingUp className="w-5 h-5" />
                   </div>
-                  <div>
-                    <span className="text-xs uppercase tracking-wider text-emerald-600 font-bold block mb-1">Most Sold Book</span>
-                    <Link to={`/book/${mostSoldBook.id}`} className="font-serif text-lg text-foreground hover:text-primary transition-colors line-clamp-1 font-semibold">
+                  <div className="min-w-0">
+                    <span className="text-[10px] uppercase tracking-wider text-emerald-500 font-bold block mb-0.5">Most Sold Book</span>
+                    <Link to={`/book/${mostSoldBook.id}`} className="font-serif text-base text-foreground hover:text-[#c84b2f] transition-colors line-clamp-1 font-semibold">
                       {mostSoldBook.title}
                     </Link>
-                    <p className="text-xs text-muted-foreground mt-0.5">A reader favorite on Wistaar</p>
                   </div>
                 </Card>
               )}
               {mostRatedBook && mostRatedBook.rating > 0 && (
-                <Card className="border-amber-500/20 bg-amber-500/[0.02] flex items-center p-6 gap-4 shadow-sm">
-                  <div className="w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-600 shrink-0">
-                    <Award className="w-6 h-6" />
+                <Card className="border-border/30 bg-[#121212]/10 p-5 flex items-center gap-4 shadow-sm">
+                  <div className="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-500 shrink-0">
+                    <Award className="w-5 h-5" />
                   </div>
-                  <div>
-                    <span className="text-xs uppercase tracking-wider text-amber-600 font-bold block mb-1">Highest Rated</span>
-                    <Link to={`/book/${mostRatedBook.id}`} className="font-serif text-lg text-foreground hover:text-primary transition-colors line-clamp-1 font-semibold">
+                  <div className="min-w-0">
+                    <span className="text-[10px] uppercase tracking-wider text-amber-500 font-bold block mb-0.5">Highest Rated</span>
+                    <Link to={`/book/${mostRatedBook.id}`} className="font-serif text-base text-foreground hover:text-[#c84b2f] transition-colors line-clamp-1 font-semibold">
                       {mostRatedBook.title}
                     </Link>
-                    <div className="flex items-center gap-1.5 mt-0.5">
+                    <div className="flex items-center gap-1 mt-0.5 text-xs text-muted-foreground font-mono">
                       <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
-                      <span className="text-xs font-semibold text-foreground">{mostRatedBook.rating.toFixed(1)} / 5.0</span>
+                      <span>{mostRatedBook.rating.toFixed(1)} / 5.0</span>
                     </div>
                   </div>
                 </Card>
@@ -339,16 +344,16 @@ export default function AuthorProfile() {
           )}
 
           {/* Books grid */}
-          <div>
-            <h2 className="font-serif text-2xl text-foreground mb-8 flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-accent" />
+          <div className="space-y-6">
+            <h2 className="font-serif text-2xl text-foreground font-medium flex items-center gap-2 border-b border-border/20 pb-3">
+              <Sparkles className="w-5 h-5 text-[#c84b2f]" />
               Published Books
             </h2>
 
             {books.length === 0 ? (
-              <div className="text-center py-16 border border-dashed rounded-lg bg-card/30">
+              <div className="text-center py-20 border border-dashed border-border/30 rounded-xl bg-[#121212]/10">
                 <BookOpen className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
-                <p className="text-muted-foreground font-medium">No published books listed yet.</p>
+                <p className="text-muted-foreground font-medium text-sm">No published books listed yet.</p>
               </div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 lg:gap-8">

@@ -11,7 +11,8 @@ import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { User, Calendar, Loader2, Camera, Key, Eye, EyeOff, Trash2, Download, ArrowLeft, AtSign, CheckCircle2, XCircle } from "lucide-react";
+import UpgradeToAuthor from "@/components/UpgradeToAuthor";
+import { User, Calendar, Loader2, Camera, Key, Eye, EyeOff, Trash2, Download, ArrowLeft, AtSign, CheckCircle2, XCircle, Feather } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -35,25 +36,19 @@ interface Profile {
   display_name: string | null;
   avatar_url: string | null;
   username: string | null;
+  role: string | null;
 }
 
 const USERNAME_REGEX = /^[a-zA-Z0-9_]{3,30}$/;
 
-interface Book {
-  id: string;
-  title: string;
-}
-
-const Profile = () => {
+export default function ReaderProfile() {
   const { user, loading: authLoading } = useAuth();
-  const { data: purchases = [] } = usePurchases();
+  const { data: purchases = [], refetch: refetchPurchases } = usePurchases();
   const navigate = useNavigate();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [profile, setProfile] = useState<Profile>({ display_name: null, avatar_url: null, username: null });
-  const [role, setRole] = useState("reader");
-  const [isUpgrading, setIsUpgrading] = useState(false);
+  const [profile, setProfile] = useState<Profile>({ display_name: null, avatar_url: null, username: null, role: "reader" });
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -66,6 +61,9 @@ const Profile = () => {
   const usernameTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [wistiesBalance, setWistiesBalance] = useState<number | null>(null);
   const [now, setNow] = useState(new Date());
+
+  // Upgrade modal state
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   // Password change states
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
@@ -93,10 +91,10 @@ const Profile = () => {
     }
   }, [user, authLoading, navigate]);
 
-  useEffect(() => {
+  const fetchProfile = async () => {
     if (!user) return;
-
-    const fetchProfile = async () => {
+    setIsLoading(true);
+    try {
       const { data, error } = await supabase
         .from("profiles")
         .select("display_name, avatar_url, username, role")
@@ -108,7 +106,6 @@ const Profile = () => {
         setDisplayName(data.display_name ?? "");
         setAvatarUrl(data.avatar_url ?? "");
         setUsername(data.username ?? "");
-        setRole(data.role ?? "reader");
       }
 
       // Fetch Wisties balance
@@ -119,11 +116,17 @@ const Profile = () => {
         .maybeSingle();
       
       setWistiesBalance(wistiesData?.balance ?? 0);
-
+    } catch (err) {
+      console.error("Error loading profile:", err);
+    } finally {
       setIsLoading(false);
-    };
+    }
+  };
 
-    fetchProfile();
+  useEffect(() => {
+    if (user) {
+      fetchProfile();
+    }
   }, [user]);
 
   // Load book titles for transactions
@@ -136,8 +139,6 @@ const Profile = () => {
     const fetchBookTitles = async () => {
       try {
         const bookIds = purchases.map(p => p.book_id);
-        
-        // Fetch books with error logging
         const { data, error } = await supabase
           .from("book_submissions")
           .select("id, title")
@@ -145,7 +146,6 @@ const Profile = () => {
 
         if (error) {
           console.error("Error fetching books:", error);
-          // Set placeholder titles if query fails
           const placeholderMap = bookIds.reduce((acc, id) => {
             acc[id] = "Book Title";
             return acc;
@@ -157,14 +157,6 @@ const Profile = () => {
             return acc;
           }, {} as Record<string, string>);
           setBookTitles(titlesMap);
-        } else {
-          console.log("No books found. Purchase data:", purchases);
-          // If no books found, try fetching the first book to check table structure
-          const { data: sampleData } = await supabase
-            .from("book_submissions")
-            .select("*")
-            .limit(1);
-          console.log("Sample book structure:", sampleData);
         }
       } catch (err) {
         console.error("Unexpected error fetching books:", err);
@@ -185,30 +177,30 @@ const Profile = () => {
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      toast({ title: "File too large", description: "Please select an image under 5MB.", variant: "destructive" });
+    if (file.size > 2 * 1024 * 1024) {
+      toast({ title: "File too large", description: "Please select an image under 2MB.", variant: "destructive" });
       return;
     }
 
     setIsUploading(true);
-    const ext = file.name.split(".").pop();
-    const filePath = `${user.id}/avatar.${ext}`;
+    try {
+      const ext = file.name.split(".").pop();
+      const filePath = `${user.id}/avatar-${Date.now()}.${ext}`;
 
-    const { error: uploadError } = await supabase.storage
-      .from("avatars")
-      .upload(filePath, file, { upsert: true });
+      const { error: uploadError } = await supabase.storage
+        .from("profiles")
+        .upload(filePath, file, { upsert: true });
 
-    if (uploadError) {
-      toast({ title: "Upload failed", description: uploadError.message, variant: "destructive" });
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage.from("profiles").getPublicUrl(filePath);
+      setAvatarUrl(publicUrl);
+      toast({ title: "Avatar uploaded", description: "Don't forget to save changes to complete updates." });
+    } catch (err: any) {
+      toast({ title: "Upload failed", description: err.message, variant: "destructive" });
+    } finally {
       setIsUploading(false);
-      return;
     }
-
-    const { data: { publicUrl } } = supabase.storage.from("avatars").getPublicUrl(filePath);
-    const urlWithCacheBust = `${publicUrl}?t=${Date.now()}`;
-    setAvatarUrl(urlWithCacheBust);
-    setIsUploading(false);
-    toast({ title: "Avatar uploaded", description: "Don't forget to save your changes." });
   };
 
   const handleChangePassword = async () => {
@@ -228,7 +220,6 @@ const Profile = () => {
     }
 
     setIsChangingPassword(true);
-
     try {
       // Verify current password by attempting to sign in
       const { error: signInError } = await supabase.auth.signInWithPassword({
@@ -238,7 +229,6 @@ const Profile = () => {
 
       if (signInError) {
         toast({ title: "Error", description: "Current password is incorrect.", variant: "destructive" });
-        setIsChangingPassword(false);
         return;
       }
 
@@ -256,7 +246,7 @@ const Profile = () => {
         setConfirmPassword("");
         setShowPasswordDialog(false);
       }
-    } catch (error) {
+    } catch {
       toast({ title: "Error", description: "An unexpected error occurred.", variant: "destructive" });
     } finally {
       setIsChangingPassword(false);
@@ -274,8 +264,9 @@ const Profile = () => {
       if (error) throw error;
 
       toast({ title: "Success", description: "Transaction deleted." });
+      refetchPurchases();
       setDeleteTransactionId(null);
-    } catch (error) {
+    } catch {
       toast({ title: "Error", description: "Failed to delete transaction.", variant: "destructive" });
     }
   };
@@ -304,11 +295,9 @@ Thank you for your purchase!
     document.body.removeChild(element);
   };
 
-  // Debounced username availability check
   const checkUsernameAvailability = useCallback((value: string) => {
     if (usernameTimerRef.current) clearTimeout(usernameTimerRef.current);
     
-    // If same as current saved username, no need to check
     if (value === (profile.username ?? "")) {
       setUsernameError(null);
       setUsernameAvailable(null);
@@ -316,7 +305,6 @@ Thank you for your purchase!
       return;
     }
 
-    // If empty, clear state
     if (!value) {
       setUsernameError(null);
       setUsernameAvailable(null);
@@ -324,9 +312,8 @@ Thank you for your purchase!
       return;
     }
 
-    // Validate format first
     if (!USERNAME_REGEX.test(value)) {
-      setUsernameError(value.length < 3 ? "Username must be at least 3 characters" : value.length > 30 ? "Username must be 30 characters or less" : "Only letters, numbers, and underscores allowed");
+      setUsernameError("3-30 characters, letters, numbers, and underscores only");
       setUsernameAvailable(null);
       setIsCheckingUsername(false);
       return;
@@ -369,10 +356,9 @@ Thank you for your purchase!
   const handleSave = async () => {
     if (!user) return;
 
-    // Validate username before saving
     const trimmedUsername = username.trim() || null;
     if (trimmedUsername && !USERNAME_REGEX.test(trimmedUsername)) {
-      toast({ title: "Invalid username", description: "Username must be 3-30 characters, letters/numbers/underscores only.", variant: "destructive" });
+      toast({ title: "Invalid username", description: "Username must be 3-30 characters, alphanumeric or underscores.", variant: "destructive" });
       return;
     }
     if (usernameError) {
@@ -381,7 +367,6 @@ Thank you for your purchase!
     }
 
     setIsSaving(true);
-
     const { error } = await supabase
       .from("profiles")
       .update({
@@ -394,56 +379,11 @@ Thank you for your purchase!
     setIsSaving(false);
 
     if (error) {
-      if (error.message?.includes('chk_username_format') || error.message?.includes('idx_profiles_username_lower')) {
-        toast({ title: "Username unavailable", description: "This username is already taken or invalid.", variant: "destructive" });
-      } else {
-        toast({ title: "Error", description: "Failed to update profile.", variant: "destructive" });
-      }
+      toast({ title: "Error", description: "Failed to update profile.", variant: "destructive" });
     } else {
-      setProfile({ display_name: displayName || null, avatar_url: avatarUrl || null, username: trimmedUsername });
-      setUsernameAvailable(null); // Reset availability state after save
+      setProfile(prev => ({ ...prev, display_name: displayName || null, avatar_url: avatarUrl || null, username: trimmedUsername }));
+      setUsernameAvailable(null);
       toast({ title: "Profile updated", description: "Your changes have been saved." });
-    }
-  };
-
-  const handleUpgradeToAuthor = async () => {
-    if (!user) return;
-    setIsUpgrading(true);
-
-    try {
-      // 1. Assign 'author' role in user_roles table
-      const { error: roleError } = await supabase
-        .from("user_roles")
-        .insert({ user_id: user.id, role: "author" as any });
-
-      if (roleError && !roleError.message?.includes("duplicate key")) {
-        throw roleError;
-      }
-
-      // 2. Update role in profiles table to 'author'
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .update({ role: "author" })
-        .eq("user_id", user.id);
-
-      if (profileError) throw profileError;
-
-      setRole("author");
-      toast({
-        title: "Welcome to Wistaar Author Portal!",
-        description: "Your account has been upgraded successfully.",
-      });
-
-      // Redirect directly to the dashboard
-      navigate("/author/dashboard");
-    } catch (err: any) {
-      toast({
-        title: "Upgrade failed",
-        description: err.message,
-        variant: "destructive",
-      });
-    } finally {
-      setIsUpgrading(false);
     }
   };
 
@@ -457,77 +397,43 @@ Thank you for your purchase!
 
   if (authLoading || isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
         <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-[#0a0a0a] text-foreground">
       <Navigation />
-      <main className="container-main pt-24 pb-16">
+      
+      <main className="container-main pt-24 pb-16 px-4 md:px-6">
         <div className="max-w-2xl mx-auto space-y-8">
-          <div>
-            <h1 className="text-3xl font-serif mb-1">Profile</h1>
-            <p className="text-muted-foreground text-sm">Manage your account details</p>
+          
+          {/* Header */}
+          <div className="space-y-1">
+            <h1 className="text-3xl font-serif font-medium tracking-tight">Profile Settings</h1>
+            <p className="text-muted-foreground text-sm font-sans">Manage your reader preferences and settings.</p>
           </div>
 
-          <Card className="bg-gradient-to-r from-muted/50 to-muted/10 border-[#c97b63]/20 shadow-sm cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate('/profile/wisties')}>
-            <CardContent className="p-6 flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground mb-1">Store Credit</p>
-                <div className="flex items-baseline gap-2">
-                  <span className="text-2xl font-bold font-serif text-[#8b4530]">
-                    ₹{wistiesBalance !== null ? wistiesBalance : '...'}
-                  </span>
-                  <span className="text-sm font-medium">Wisties</span>
-                </div>
-              </div>
-              <div className="flex items-center text-[#c97b63] font-medium text-sm">
-                Wisties balance <ArrowLeft className="w-4 h-4 ml-1 rotate-180" />
-              </div>
-            </CardContent>
-          </Card>
-
-          {role !== "author" && (
-            <Card className="bg-gradient-to-r from-accent/15 via-background to-accent/5 border-accent/20 shadow-sm cursor-pointer hover:shadow-md transition-all duration-300" onClick={handleUpgradeToAuthor}>
-              <CardContent className="p-6 flex items-center justify-between">
-                <div className="space-y-1">
-                  <p className="text-xs font-semibold text-accent uppercase tracking-wider">Publishing Portal</p>
-                  <h3 className="text-lg font-serif font-bold text-foreground">
-                    Become a Wistaar Author
-                  </h3>
-                  <p className="text-xs text-muted-foreground">
-                    Publish your own books, track reader stats, and earn a <strong className="text-accent">65% royalty</strong> on every sale!
-                  </p>
-                </div>
-                <Button variant="ghost" disabled={isUpgrading} className="text-accent hover:text-accent hover:bg-accent/5 flex items-center gap-1 shrink-0 ml-4 font-semibold text-sm">
-                  {isUpgrading ? "Upgrading..." : "Upgrade Free"}
-                  <ArrowLeft className="w-4 h-4 ml-1 rotate-180" />
-                </Button>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Avatar with upload */}
-          <div className="flex items-center gap-4">
-            <div className="relative group">
-              <Avatar className="w-16 h-16">
+          {/* User Hero Section */}
+          <div className="flex items-center gap-5 p-5 rounded-xl border border-border/30 bg-[#121212]/30">
+            <div className="relative group shrink-0">
+              <Avatar className="w-16 h-16 border border-border/40 shadow-sm">
                 <AvatarImage src={avatarUrl} alt={displayName} />
-                <AvatarFallback className="bg-accent text-accent-foreground text-lg font-serif">
+                <AvatarFallback className="bg-[#c84b2f]/10 text-[#c84b2f] text-lg font-serif">
                   {initials}
                 </AvatarFallback>
               </Avatar>
               <button
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isUploading}
-                className="absolute inset-0 flex items-center justify-center bg-foreground/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
               >
                 {isUploading ? (
-                  <Loader2 className="w-5 h-5 text-background animate-spin" />
+                  <Loader2 className="w-5 h-5 text-white animate-spin" />
                 ) : (
-                  <Camera className="w-5 h-5 text-background" />
+                  <Camera className="w-5 h-5 text-white" />
                 )}
               </button>
               <input
@@ -538,31 +444,52 @@ Thank you for your purchase!
                 className="hidden"
               />
             </div>
-            <div>
-              <p className="font-medium">{displayName || "No name set"}</p>
+            <div className="min-w-0 flex-1">
+              <p className="font-serif text-lg font-medium truncate">{displayName || "Wistaar Reader"}</p>
               {profile.username && (
-                <p className="text-sm text-primary font-medium">@{profile.username}</p>
+                <p className="text-sm font-medium text-[#c84b2f]">@{profile.username}</p>
               )}
-              <p className="text-sm text-muted-foreground">{user?.email}</p>
+              <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
             </div>
           </div>
 
-          {/* Tabs for Edit Profile and Transaction History */}
-          <Tabs defaultValue="profile" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="profile">Profile Settings</TabsTrigger>
-              <TabsTrigger value="transactions">Transaction History</TabsTrigger>
+          {/* Wisties Balance Card */}
+          <Card 
+            onClick={() => navigate('/profile/wisties')}
+            className="bg-gradient-to-br from-[#161616] to-[#0f0f0f] border-border/40 hover:border-[#c84b2f]/30 transition-all duration-300 shadow-sm cursor-pointer"
+          >
+            <CardContent className="p-6 flex items-center justify-between">
+              <div className="space-y-1">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Store Credit</p>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-3xl font-serif font-bold text-[#c84b2f]">
+                    ₹{wistiesBalance !== null ? wistiesBalance : '...'}
+                  </span>
+                  <span className="text-sm text-foreground/80 font-sans">Wisties Balance</span>
+                </div>
+              </div>
+              <div className="flex items-center text-[#c84b2f] font-semibold text-sm gap-1 hover:translate-x-1 transition-transform">
+                Top Up <ArrowLeft className="w-4 h-4 rotate-180" />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Tabs for Settings / History */}
+          <Tabs defaultValue="profile" className="w-full space-y-6">
+            <TabsList className="grid w-full grid-cols-2 bg-[#121212]/80 border border-border/30 p-1">
+              <TabsTrigger value="profile" className="font-sans font-medium">Profile Details</TabsTrigger>
+              <TabsTrigger value="transactions" className="font-sans font-medium">Transaction History</TabsTrigger>
             </TabsList>
 
-            {/* Profile Settings Tab */}
-            <TabsContent value="profile" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg font-serif">Edit Profile</CardTitle>
+            {/* Profile Settings Content */}
+            <TabsContent value="profile" className="space-y-6 outline-none">
+              <Card className="border-border/30 bg-[#0d0d0d]">
+                <CardHeader className="pb-3 border-b border-border/20">
+                  <CardTitle className="text-lg font-serif font-medium">Edit Profile Info</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-5">
+                <CardContent className="p-6 space-y-5">
                   <div className="space-y-2">
-                    <Label htmlFor="displayName" className="flex items-center gap-2">
+                    <Label htmlFor="displayName" className="flex items-center gap-2 text-sm text-foreground/80">
                       <User className="w-4 h-4 text-muted-foreground" />
                       Display Name
                     </Label>
@@ -570,12 +497,13 @@ Thank you for your purchase!
                       id="displayName"
                       value={displayName}
                       onChange={(e) => setDisplayName(e.target.value)}
-                      placeholder="Your display name"
+                      placeholder="Enter display name"
+                      className="bg-[#121212]/50 border-border/30 h-11 focus-visible:ring-[#c84b2f]"
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="username" className="flex items-center gap-2">
+                    <Label htmlFor="username" className="flex items-center gap-2 text-sm text-foreground/80">
                       <AtSign className="w-4 h-4 text-muted-foreground" />
                       Username
                     </Label>
@@ -586,9 +514,9 @@ Thank you for your purchase!
                         onChange={(e) => handleUsernameChange(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
                         placeholder="your_username"
                         maxLength={30}
-                        className={`pr-10 ${
+                        className={`bg-[#121212]/50 border-border/30 h-11 pr-10 focus-visible:ring-[#c84b2f] ${
                           usernameError ? 'border-destructive focus-visible:ring-destructive' :
-                          usernameAvailable === true ? 'border-green-500 focus-visible:ring-green-500' : ''
+                          usernameAvailable === true ? 'border-green-500/50 focus-visible:ring-green-500' : ''
                         }`}
                       />
                       <div className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -605,51 +533,56 @@ Thank you for your purchase!
                       <p className="text-xs text-destructive">{usernameError}</p>
                     )}
                     {!isCheckingUsername && usernameAvailable === true && (
-                      <p className="text-xs text-green-600">Username available</p>
+                      <p className="text-xs text-green-500">Username is available</p>
                     )}
                     {!username && !usernameError && (
-                      <p className="text-xs text-muted-foreground">3-30 characters, letters, numbers, and underscores only</p>
+                      <p className="text-xs text-muted-foreground font-sans">Letters, numbers, and underscores (3-30 chars).</p>
                     )}
                   </div>
 
-                  <div className="flex items-center justify-between pt-2">
-                    <p className="text-xs text-muted-foreground flex items-center gap-1">
-                      <Calendar className="w-3 h-3" />
-                      {now.toLocaleDateString(undefined, { weekday: "short", year: "numeric", month: "short", day: "numeric" })}
+                  <div className="flex items-center justify-between pt-4 border-t border-border/20">
+                    <p className="text-xs text-muted-foreground flex items-center gap-1 font-mono">
+                      <Calendar className="w-3.5 h-3.5" />
+                      {now.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}
                       {" · "}
-                      {now.toLocaleTimeString()}
+                      {now.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
                     </p>
-                    <Button onClick={handleSave} disabled={isSaving || !hasChanges || hasUsernameIssue}>
-                      {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                    <Button 
+                      onClick={handleSave} 
+                      disabled={isSaving || !hasChanges || hasUsernameIssue}
+                      className="bg-[#c84b2f] hover:bg-[#c84b2f]/90 text-white px-6 font-semibold"
+                    >
+                      {isSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                       Save Changes
                     </Button>
                   </div>
                 </CardContent>
               </Card>
 
-              {/* Change Password Card */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg font-serif">Security</CardTitle>
+              {/* Password Change Security */}
+              <Card className="border-border/30 bg-[#0d0d0d]">
+                <CardHeader className="pb-3 border-b border-border/20">
+                  <CardTitle className="text-lg font-serif font-medium">Security settings</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <p className="text-sm text-muted-foreground">Keep your account secure by regularly updating your password.</p>
+                <CardContent className="p-6 space-y-4">
+                  <p className="text-sm text-muted-foreground/80 leading-relaxed font-sans">
+                    Keep your account secure by periodically updating your credentials.
+                  </p>
                   <Dialog open={showPasswordDialog} onOpenChange={setShowPasswordDialog}>
                     <DialogTrigger asChild>
-                      <Button variant="outline" className="w-full sm:w-auto">
+                      <Button variant="outline" className="h-10 border-border/40 font-semibold text-sm">
                         <Key className="w-4 h-4 mr-2" />
-                        Change Password
+                        Update Password
                       </Button>
                     </DialogTrigger>
-                    <DialogContent className="sm:max-w-[425px]">
+                    <DialogContent className="sm:max-w-[425px] bg-[#0d0d0d] border border-border/40 text-foreground">
                       <DialogHeader>
-                        <DialogTitle>Change Password</DialogTitle>
-                        <DialogDescription>
-                          Enter your current password and choose a new one.
+                        <DialogTitle className="font-serif text-xl">Change Password</DialogTitle>
+                        <DialogDescription className="text-sm text-muted-foreground font-sans">
+                          Enter your current password and choose a new secure one.
                         </DialogDescription>
                       </DialogHeader>
                       <div className="space-y-4 py-4">
-                        {/* Current Password */}
                         <div className="space-y-2">
                           <Label htmlFor="current-password">Current Password</Label>
                           <div className="relative">
@@ -659,6 +592,7 @@ Thank you for your purchase!
                               value={currentPassword}
                               onChange={(e) => setCurrentPassword(e.target.value)}
                               placeholder="Enter current password"
+                              className="bg-[#121212]/50 border-border/30 pr-10 focus-visible:ring-[#c84b2f]"
                             />
                             <button
                               type="button"
@@ -670,7 +604,6 @@ Thank you for your purchase!
                           </div>
                         </div>
 
-                        {/* New Password */}
                         <div className="space-y-2">
                           <Label htmlFor="new-password">New Password</Label>
                           <div className="relative">
@@ -679,7 +612,8 @@ Thank you for your purchase!
                               type={showNewPassword ? "text" : "password"}
                               value={newPassword}
                               onChange={(e) => setNewPassword(e.target.value)}
-                              placeholder="Enter new password (min 8 characters)"
+                              placeholder="Min. 8 characters"
+                              className="bg-[#121212]/50 border-border/30 pr-10 focus-visible:ring-[#c84b2f]"
                             />
                             <button
                               type="button"
@@ -691,32 +625,34 @@ Thank you for your purchase!
                           </div>
                         </div>
 
-                        {/* Confirm Password */}
                         <div className="space-y-2">
-                          <Label htmlFor="confirm-password">Confirm Password</Label>
+                          <Label htmlFor="confirm-password">Confirm New Password</Label>
                           <Input
                             id="confirm-password"
                             type={showNewPassword ? "text" : "password"}
                             value={confirmPassword}
                             onChange={(e) => setConfirmPassword(e.target.value)}
-                            placeholder="Confirm new password"
+                            placeholder="Re-enter new password"
+                            className="bg-[#121212]/50 border-border/30 focus-visible:ring-[#c84b2f]"
                           />
                         </div>
                       </div>
-                      <div className="flex gap-3 justify-end">
+                      <div className="flex gap-3 justify-end pt-2">
                         <Button
                           variant="outline"
                           onClick={() => setShowPasswordDialog(false)}
                           disabled={isChangingPassword}
+                          className="font-semibold"
                         >
                           Cancel
                         </Button>
                         <Button
                           onClick={handleChangePassword}
                           disabled={isChangingPassword}
+                          className="bg-[#c84b2f] hover:bg-[#c84b2f]/90 text-white font-semibold"
                         >
-                          {isChangingPassword ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                          Update Password
+                          {isChangingPassword && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                          Update
                         </Button>
                       </div>
                     </DialogContent>
@@ -725,29 +661,29 @@ Thank you for your purchase!
               </Card>
             </TabsContent>
 
-            {/* Transaction History Tab */}
-            <TabsContent value="transactions" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg font-serif">Purchase History</CardTitle>
+            {/* Transactions Content */}
+            <TabsContent value="transactions" className="outline-none">
+              <Card className="border-border/30 bg-[#0d0d0d]">
+                <CardHeader className="pb-3 border-b border-border/20">
+                  <CardTitle className="text-lg font-serif font-medium">Purchase History</CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="p-6">
                   {isLoadingBooks ? (
-                    <div className="flex justify-center py-8">
+                    <div className="flex justify-center py-10">
                       <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
                     </div>
                   ) : purchases.length === 0 ? (
-                    <p className="text-center text-muted-foreground py-8">No purchases yet.</p>
+                    <p className="text-center text-muted-foreground font-sans py-12">No book purchases on record.</p>
                   ) : (
-                    <div className="space-y-3">
+                    <div className="space-y-3.5">
                       {purchases.map((purchase) => (
                         <div
                           key={purchase.id}
-                          className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                          className="flex items-center justify-between p-4 border border-border/30 rounded-lg bg-[#121212]/20 hover:bg-[#121212]/40 transition-colors"
                         >
-                          <div className="flex-1">
-                            <p className="font-medium">{bookTitles[purchase.book_id] || "Loading..."}</p>
-                            <p className="text-sm text-muted-foreground">
+                          <div className="flex-1 min-w-0 pr-4">
+                            <p className="font-serif font-medium truncate">{bookTitles[purchase.book_id] || "Digital Title"}</p>
+                            <p className="text-xs text-muted-foreground font-mono">
                               {new Date(purchase.purchased_at).toLocaleDateString(undefined, {
                                 year: "numeric",
                                 month: "short",
@@ -755,45 +691,46 @@ Thank you for your purchase!
                               })}
                             </p>
                           </div>
-                          <div className="text-right mr-4">
-                            <p className="font-medium">₹{purchase.amount.toFixed(2)}</p>
-                            <p className="text-xs text-green-600 font-medium">
+                          <div className="text-right shrink-0 pr-4">
+                            <p className="font-serif font-semibold text-[#c84b2f]">₹{purchase.amount.toFixed(2)}</p>
+                            <p className="text-[10px] text-green-500 font-bold tracking-wider uppercase">
                               {purchase.payment_status === "completed" ? "Completed" : purchase.payment_status}
                             </p>
                           </div>
-                          <div className="flex gap-2">
+                          <div className="flex gap-1 shrink-0">
                             <Button
-                              size="sm"
+                              size="icon"
                               variant="ghost"
                               onClick={() => handleDownloadReceipt(purchase)}
+                              className="w-9 h-9 text-muted-foreground hover:text-foreground"
                               title="Download receipt"
                             >
                               <Download className="w-4 h-4" />
                             </Button>
                             <AlertDialog open={deleteTransactionId === purchase.id}>
                               <Button
-                                size="sm"
+                                size="icon"
                                 variant="ghost"
-                                className="text-destructive hover:text-destructive"
+                                className="w-9 h-9 text-destructive hover:text-destructive hover:bg-destructive/10"
                                 onClick={() => setDeleteTransactionId(purchase.id)}
-                                title="Delete transaction"
+                                title="Delete transaction record"
                               >
                                 <Trash2 className="w-4 h-4" />
                               </Button>
-                              <AlertDialogContent>
+                              <AlertDialogContent className="bg-[#0d0d0d] border border-border/40 text-foreground">
                                 <AlertDialogHeader>
-                                  <AlertDialogTitle>Delete Transaction</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    Are you sure you want to delete this transaction? This action cannot be undone.
+                                  <AlertDialogTitle className="font-serif text-xl">Delete Transaction</AlertDialogTitle>
+                                  <AlertDialogDescription className="text-sm text-muted-foreground font-sans">
+                                    Are you sure you want to delete this receipt record from your local history? This action cannot be undone.
                                   </AlertDialogDescription>
                                 </AlertDialogHeader>
-                                <div className="flex gap-3 justify-end">
-                                  <AlertDialogCancel onClick={() => setDeleteTransactionId(null)}>
+                                <div className="flex gap-3 justify-end pt-4">
+                                  <AlertDialogCancel onClick={() => setDeleteTransactionId(null)} className="font-semibold">
                                     Cancel
                                   </AlertDialogCancel>
                                   <AlertDialogAction
                                     onClick={() => purchase.id && handleDeleteTransaction(purchase.id)}
-                                    className="bg-destructive hover:bg-destructive/90"
+                                    className="bg-destructive hover:bg-destructive/90 text-white font-semibold"
                                   >
                                     Delete
                                   </AlertDialogAction>
@@ -809,11 +746,42 @@ Thank you for your purchase!
               </Card>
             </TabsContent>
           </Tabs>
+
+          {/* Muted subtle upgrade link at bottom */}
+          <div className="text-center pt-4">
+            {profile.role !== "author" ? (
+              <button 
+                onClick={() => setShowUpgradeModal(true)}
+                className="text-xs text-muted-foreground/60 hover:text-[#c84b2f]/90 transition-colors font-sans flex items-center justify-center gap-1.5 mx-auto hover:underline"
+              >
+                <Feather className="w-3.5 h-3.5" />
+                Publish on Wistaar
+              </button>
+            ) : (
+              <button
+                onClick={() => navigate('/author/dashboard')}
+                className="text-xs text-muted-foreground/60 hover:text-[#c84b2f]/90 transition-colors font-sans flex items-center justify-center gap-1.5 mx-auto hover:underline"
+              >
+                <Feather className="w-3.5 h-3.5" />
+                Author Portal Dashboard
+              </button>
+            )}
+          </div>
+
         </div>
       </main>
+
+      {/* Upgrade to Author Modal Dialog */}
+      {user && (
+        <UpgradeToAuthor 
+          isOpen={showUpgradeModal}
+          onOpenChange={setShowUpgradeModal}
+          userId={user.id}
+          onSuccess={fetchProfile}
+        />
+      )}
+
       <Footer />
     </div>
   );
-};
-
-export default Profile;
+}

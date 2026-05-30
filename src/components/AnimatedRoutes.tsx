@@ -22,7 +22,7 @@ const Read = lazy(() => import("@/pages/Read"));
 const BookReader = lazy(() => import("@/pages/BookReader"));
 const Library = lazy(() => import("@/pages/Library"));
 const Cart = lazy(() => import("@/pages/Cart"));
-const Profile = lazy(() => import("@/pages/Profile"));
+const Profile = lazy(() => import("@/pages/ReaderProfile"));
 const NotFound = lazy(() => import("@/pages/NotFound"));
 const TermsOfService = lazy(() => import("@/pages/TermsOfService"));
 const PrivacyPolicy = lazy(() => import("@/pages/PrivacyPolicy"));
@@ -31,7 +31,7 @@ const ForgotPassword = lazy(() => import("@/pages/ForgotPassword"));
 const ResetPassword = lazy(() => import("@/pages/ResetPassword"));
 const Wisties = lazy(() => import("@/pages/Wisties"));
 const RefundPolicy = lazy(() => import("@/pages/RefundPolicy"));
-const AuthorProfile = lazy(() => import("@/pages/AuthorProfile"));
+const AuthorProfile = lazy(() => import("@/pages/AuthorPublicPage"));
 
 const LazyFallback = () => (
   <div className="min-h-screen bg-background">
