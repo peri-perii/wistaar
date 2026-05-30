@@ -16,6 +16,7 @@ import { logger } from '../../utils/logger.js';
 import {
   signupSchema,
   loginSchema,
+  googleLoginSchema,
   emailVerificationSchema,
   passwordResetRequestSchema,
   passwordResetSchema,
@@ -114,6 +115,48 @@ export class AuthController {
         ) {
           throw new AppError(error.message, 401, 'LOGIN_ERROR');
         }
+      }
+      throw error;
+    }
+  });
+
+  /**
+   * Google OAuth login endpoint
+   * POST /api/auth/google
+   * @async
+   * @route POST /google
+   * @param {AuthRequest} req - Express request with Google credential JWT
+   * @param {Response} res - Express response
+   * @throws {AppError} If Google authentication fails
+   */
+  static googleLogin = asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { credential } = req.body;
+    const clientIp = req.ip || req.connection.remoteAddress;
+
+    try {
+      const result = await authService.googleLoginOrSignup(credential, clientIp);
+
+      // Set refresh token in httpOnly cookie
+      res.cookie('refreshToken', result.refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      });
+
+      res.status(200).json({
+        success: true,
+        message: 'Google login successful',
+        data: {
+          user: result.user,
+          accessToken: result.accessToken,
+          isNewUser: result.isNewUser,
+        },
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      if (error instanceof Error) {
+        throw new AppError(error.message, 401, 'GOOGLE_AUTH_ERROR');
       }
       throw error;
     }
@@ -285,6 +328,13 @@ export function createAuthRoutes() {
     authLimiter,
     validate(loginSchema),
     AuthController.login
+  );
+
+  router.post(
+    '/google',
+    authLimiter,
+    validate(googleLoginSchema),
+    AuthController.googleLogin
   );
 
   router.post(

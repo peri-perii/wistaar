@@ -51,6 +51,16 @@ export const loginSchema = z.object({
 });
 
 /**
+ * Google login request validation schema
+ * @constant googleLoginSchema
+ */
+export const googleLoginSchema = z.object({
+  body: z.object({
+    credential: z.string().min(1, 'Google credential token is required'),
+  }),
+});
+
+/**
  * Email verification request validation schema
  * @constant emailVerificationSchema
  */

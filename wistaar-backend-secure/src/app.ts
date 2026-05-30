@@ -15,6 +15,7 @@ import {
   errorHandler,
   notFoundHandler,
 } from './middleware/error.js';
+import { createAuthRoutes } from './modules/auth/controller.js';
 
 /**
  * Create and configure Express application
@@ -100,9 +101,7 @@ export function createApp(): Express {
   });
 
   // ============ Public Routes ============
-  // TODO: Mount public routes (auth, public books, etc.)
-  // app.use('/api/auth', authRoutes);
-  // app.use('/api/books', publicBookRoutes);
+  app.use('/api/auth', createAuthRoutes());
 
   // ============ Protected Routes ============
   // TODO: Mount protected routes

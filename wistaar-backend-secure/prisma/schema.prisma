@@ -17,6 +17,7 @@ generator client {
 model User {
   id                    String      @id @default(cuid())
   email                 String      @unique
+  googleId              String?     @unique // Google OAuth unique ID
   passwordHash          String
   emailVerified         Boolean     @default(false)
   emailVerificationToken String?
@@ -45,6 +46,7 @@ model User {
   appliedCoupons        AppliedCoupon[]
 
   @@index([email])
+  @@index([googleId])
   @@index([createdAt])
 }
 
@@ -117,7 +119,7 @@ model BookSubmission {
   @@index([authorId])
   @@index([status])
   @@index([genre])
-  @@index([createdAt])
+  @@index([submittedAt])
 }
 
 enum SubmissionStatus {
@@ -305,7 +307,7 @@ model Notification {
   type                  NotificationType
   title                 String
   message               String      @db.Text
-  data                  String?     @db.Json
+  data                  Json?
   isRead                Boolean     @default(false)
   readAt                DateTime?
   createdAt             DateTime    @default(now())
@@ -339,7 +341,7 @@ model AuditLog {
   action                String
   entity                String
   entityId              String?
-  changes               String?     @db.Json
+  changes               Json?
   ipAddress             String?
   userAgent             String?
   createdAt             DateTime    @default(now())

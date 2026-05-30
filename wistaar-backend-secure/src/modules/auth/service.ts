@@ -6,6 +6,7 @@
 
 import jwt from 'jsonwebtoken';
 import { v4 as uuid } from 'uuid';
+import { OAuth2Client } from 'google-auth-library';
 import { logger, logAuthEvent } from '../../utils/logger.js';
 import { cryptoUtil } from '../../utils/crypto.js';
 import { JwtPayload, UserRole } from '../../utils/types.js';
@@ -247,6 +248,182 @@ export class AuthService {
     } catch (error) {
       logger.error('Login failed', {
         email,
+        error: (error as Error).message,
+        ip,
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Login or signup a user using a Google OAuth ID Token (JWT)
+   * @async
+   * @method googleLoginOrSignup
+   * @param {string} credential - The Google JWT credential token
+   * @param {string} [ip] - Client IP for audit logging
+   * @returns {Promise<Object>} User data with Wistaar tokens
+   * @throws {Error} If authentication or database creation fails
+   */
+  public async googleLoginOrSignup(
+    credential: string,
+    ip?: string
+  ): Promise<any> {
+    try {
+      const googleClientId = process.env.GOOGLE_CLIENT_ID;
+      if (!googleClientId) {
+        throw new Error('GOOGLE_CLIENT_ID environment variable is not set');
+      }
+
+      const client = new OAuth2Client(googleClientId);
+
+      // Verify the credential JWT with Google
+      const ticket = await client.verifyIdToken({
+        idToken: credential,
+        audience: googleClientId,
+      });
+
+      const payload = ticket.getPayload();
+      if (!payload) {
+        throw new Error('Failed to retrieve Google token payload');
+      }
+
+      const { sub: googleId, email, name, picture, email_verified } = payload;
+
+      if (!email) {
+        throw new Error('Email is missing from Google token payload');
+      }
+
+      // Check if user already exists by googleId or email
+      let user = await prisma.user.findFirst({
+        where: {
+          OR: [
+            { googleId },
+            { email }
+          ]
+        },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          googleId: true,
+          isEmailVerified: true,
+          accountLocked: true,
+          lockUntil: true,
+        }
+      });
+
+      let isNewUser = false;
+
+      if (!user) {
+        // Create new user
+        isNewUser = true;
+
+        // Generate a random secure password hash since passwordHash is required
+        const randomPassword = uuid() + uuid();
+        const passwordHash = await cryptoUtil.hashPassword(randomPassword, 12);
+
+        user = await prisma.user.create({
+          data: {
+            id: uuid(),
+            email,
+            googleId,
+            passwordHash,
+            name: name || 'Google User',
+            role: 'USER',
+            isEmailVerified: !!email_verified,
+            avatar: picture || null,
+          },
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            role: true,
+            googleId: true,
+            isEmailVerified: true,
+            accountLocked: true,
+            lockUntil: true,
+          }
+        });
+
+        logAuthEvent('signup', user.id, email, 'success', 'google_oauth');
+      } else {
+        // Update user if they don't have googleId or if avatar/name has changed
+        const updateData: any = {};
+        if (!user.googleId) updateData.googleId = googleId;
+        if (picture) updateData.avatar = picture;
+        if (name && user.name === 'Google User') updateData.name = name;
+
+        if (Object.keys(updateData).length > 0) {
+          user = await prisma.user.update({
+            where: { id: user.id },
+            data: updateData,
+            select: {
+              id: true,
+              email: true,
+              name: true,
+              role: true,
+              googleId: true,
+              isEmailVerified: true,
+              accountLocked: true,
+              lockUntil: true,
+            }
+          });
+        }
+
+        // Check if account is locked
+        if (user.accountLocked && user.lockUntil) {
+          if (new Date() < user.lockUntil) {
+            logAuthEvent('login', user.id, email, 'failure', 'account_locked', ip);
+            throw new Error(`Account is locked. Try again after ${user.lockUntil.toISOString()}`);
+          } else {
+            // Unlock account
+            user = await prisma.user.update({
+              where: { id: user.id },
+              data: { accountLocked: false, lockUntil: null, failedAttempts: 0 },
+              select: {
+                id: true,
+                email: true,
+                name: true,
+                role: true,
+                googleId: true,
+                isEmailVerified: true,
+                accountLocked: true,
+                lockUntil: true,
+              }
+            });
+          }
+        }
+
+        logAuthEvent('login', user.id, email, 'success', 'google_oauth', ip);
+      }
+
+      // Generate custom JWT access and refresh tokens
+      const { accessToken, refreshToken } = await this.generateTokenPair(
+        user.id,
+        email,
+        user.role as UserRole
+      );
+
+      logger.info('Google OAuth authentication successful', {
+        userId: user.id,
+        email,
+        isNewUser,
+      });
+
+      return {
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+        },
+        accessToken,
+        refreshToken,
+        isNewUser,
+      };
+    } catch (error) {
+      logger.error('Google OAuth authentication failed', {
         error: (error as Error).message,
         ip,
       });
