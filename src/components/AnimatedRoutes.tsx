@@ -31,6 +31,7 @@ const ForgotPassword = lazy(() => import("@/pages/ForgotPassword"));
 const ResetPassword = lazy(() => import("@/pages/ResetPassword"));
 const Wisties = lazy(() => import("@/pages/Wisties"));
 const RefundPolicy = lazy(() => import("@/pages/RefundPolicy"));
+const AuthorProfile = lazy(() => import("@/pages/AuthorProfile"));
 
 const LazyFallback = () => (
   <div className="min-h-screen bg-background">
@@ -116,6 +117,14 @@ const AnimatedRoutes = () => {
               element={
                 <PageTransition skeleton={<BookDetailSkeleton />}>
                   <BookDetail />
+                </PageTransition>
+              }
+            />
+            <Route
+              path="/author/:username"
+              element={
+                <PageTransition>
+                  <AuthorProfile />
                 </PageTransition>
               }
             />

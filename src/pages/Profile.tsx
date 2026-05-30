@@ -52,6 +52,8 @@ const Profile = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [profile, setProfile] = useState<Profile>({ display_name: null, avatar_url: null, username: null });
+  const [role, setRole] = useState("reader");
+  const [isUpgrading, setIsUpgrading] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -97,7 +99,7 @@ const Profile = () => {
     const fetchProfile = async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("display_name, avatar_url, username")
+        .select("display_name, avatar_url, username, role")
         .eq("user_id", user.id)
         .maybeSingle();
 
@@ -106,6 +108,7 @@ const Profile = () => {
         setDisplayName(data.display_name ?? "");
         setAvatarUrl(data.avatar_url ?? "");
         setUsername(data.username ?? "");
+        setRole(data.role ?? "reader");
       }
 
       // Fetch Wisties balance
@@ -403,6 +406,47 @@ Thank you for your purchase!
     }
   };
 
+  const handleUpgradeToAuthor = async () => {
+    if (!user) return;
+    setIsUpgrading(true);
+
+    try {
+      // 1. Assign 'author' role in user_roles table
+      const { error: roleError } = await supabase
+        .from("user_roles")
+        .insert({ user_id: user.id, role: "author" as any });
+
+      if (roleError && !roleError.message?.includes("duplicate key")) {
+        throw roleError;
+      }
+
+      // 2. Update role in profiles table to 'author'
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .update({ role: "author" })
+        .eq("user_id", user.id);
+
+      if (profileError) throw profileError;
+
+      setRole("author");
+      toast({
+        title: "Welcome to Wistaar Author Portal!",
+        description: "Your account has been upgraded successfully.",
+      });
+
+      // Redirect directly to the dashboard
+      navigate("/author/dashboard");
+    } catch (err: any) {
+      toast({
+        title: "Upgrade failed",
+        description: err.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsUpgrading(false);
+    }
+  };
+
   const initials = (displayName || user?.email || "U").slice(0, 2).toUpperCase();
   const usernameChanged = username !== (profile.username ?? "");
   const hasUsernameIssue = usernameChanged && (!!usernameError || isCheckingUsername);
@@ -445,6 +489,26 @@ Thank you for your purchase!
               </div>
             </CardContent>
           </Card>
+
+          {role !== "author" && (
+            <Card className="bg-gradient-to-r from-accent/15 via-background to-accent/5 border-accent/20 shadow-sm cursor-pointer hover:shadow-md transition-all duration-300" onClick={handleUpgradeToAuthor}>
+              <CardContent className="p-6 flex items-center justify-between">
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold text-accent uppercase tracking-wider">Publishing Portal</p>
+                  <h3 className="text-lg font-serif font-bold text-foreground">
+                    Become a Wistaar Author
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    Publish your own books, track reader stats, and earn a <strong className="text-accent">65% royalty</strong> on every sale!
+                  </p>
+                </div>
+                <Button variant="ghost" disabled={isUpgrading} className="text-accent hover:text-accent hover:bg-accent/5 flex items-center gap-1 shrink-0 ml-4 font-semibold text-sm">
+                  {isUpgrading ? "Upgrading..." : "Upgrade Free"}
+                  <ArrowLeft className="w-4 h-4 ml-1 rotate-180" />
+                </Button>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Avatar with upload */}
           <div className="flex items-center gap-4">

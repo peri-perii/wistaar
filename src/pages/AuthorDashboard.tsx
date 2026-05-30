@@ -7,13 +7,14 @@ import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, BookOpen, Clock, CheckCircle, XCircle, Trash2, BarChart3 } from 'lucide-react';
+import { Plus, BookOpen, Clock, CheckCircle, XCircle, Trash2, BarChart3, User } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useAuthorEarnings } from '@/hooks/useAuthorEarnings';
 import EarningsOverview from '@/components/author/EarningsOverview';
 import EarningsBreakdown from '@/components/author/EarningsBreakdown';
 import RecentSales from '@/components/author/RecentSales';
+import AuthorProfileEdit from '@/components/author/AuthorProfileEdit';
 
 interface BookSubmission {
   id: string;
@@ -33,7 +34,7 @@ export default function AuthorDashboard() {
   const [submissions, setSubmissions] = useState<BookSubmission[]>([]);
   const [isAuthor, setIsAuthor] = useState(false);
   const [checking, setChecking] = useState(true);
-  const [activeTab, setActiveTab] = useState<'submissions' | 'earnings'>('earnings');
+  const [activeTab, setActiveTab] = useState<'submissions' | 'earnings' | 'profile'>('earnings');
   const { data: earningsData, isLoading: earningsLoading } = useAuthorEarnings();
 
   useEffect(() => {
@@ -155,6 +156,17 @@ export default function AuthorDashboard() {
               <BookOpen className="w-4 h-4 inline mr-2" />
               My Submissions
             </button>
+            <button
+              onClick={() => setActiveTab('profile')}
+              className={`px-4 py-2 font-medium border-b-2 transition-colors ${
+                activeTab === 'profile'
+                  ? 'border-accent text-foreground'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <User className="w-4 h-4 inline mr-2" />
+              Edit Pen Profile
+            </button>
           </div>
 
           {/* Earnings Tab */}
@@ -271,6 +283,11 @@ export default function AuthorDashboard() {
                 </div>
               )}
             </>
+          )}
+
+          {/* Profile Tab */}
+          {activeTab === 'profile' && user && (
+            <AuthorProfileEdit userId={user.id} />
           )}
         </div>
       </main>

@@ -22,25 +22,28 @@ export default function EarningsOverview({ stats, isLoading }: EarningsOverviewP
 
   const stats_data = [
     {
-      title: 'Total Earnings',
+      title: 'Gross Book Sales',
       value: `₹${stats.totalEarnings.toFixed(2)}`,
+      icon: DollarSign,
+      color: 'text-muted-foreground',
+      bgColor: 'bg-muted',
+      subtext: '100% of gross purchases',
+    },
+    {
+      title: 'Author Net Royalties',
+      value: `₹${(stats.totalEarnings * 0.65).toFixed(2)}`,
       icon: DollarSign,
       color: 'text-green-600',
       bgColor: 'bg-green-500/10',
+      subtext: `₹${stats.totalEarnings.toFixed(2)} × 65% royalty split`,
     },
     {
-      title: 'Total Sales',
+      title: 'Copies Sold',
       value: stats.totalSales.toString(),
       icon: ShoppingCart,
       color: 'text-blue-600',
       bgColor: 'bg-blue-500/10',
-    },
-    {
-      title: 'Books Published',
-      value: stats.topBook ? '1+' : '0',
-      icon: BookOpen,
-      color: 'text-purple-600',
-      bgColor: 'bg-purple-500/10',
+      subtext: 'All-time copies purchased',
     },
     {
       title: 'Top Performer',
@@ -48,6 +51,7 @@ export default function EarningsOverview({ stats, isLoading }: EarningsOverviewP
       icon: TrendingUp,
       color: 'text-orange-600',
       bgColor: 'bg-orange-500/10',
+      subtext: stats.topBook ? `Genre: ${stats.topBook.genre}` : 'No sales yet',
     },
   ];
 
@@ -59,9 +63,10 @@ export default function EarningsOverview({ stats, isLoading }: EarningsOverviewP
           <Card key={stat.title} className="hover:border-accent/30 transition-colors">
             <CardContent className="p-6">
               <div className="flex items-start justify-between">
-                <div className="flex-1">
+                <div className="flex-1 min-w-0">
                   <p className="text-sm text-muted-foreground mb-1">{stat.title}</p>
-                  <p className="text-2xl font-semibold text-foreground truncate">{stat.value}</p>
+                  <p className="text-2xl font-semibold text-foreground truncate mb-1">{stat.value}</p>
+                  <p className="text-[11px] text-muted-foreground/80 truncate font-mono">{stat.subtext}</p>
                 </div>
                 <div className={`${stat.bgColor} p-3 rounded-lg ml-2 flex-shrink-0`}>
                   <Icon className={`${stat.color} h-5 w-5`} />
