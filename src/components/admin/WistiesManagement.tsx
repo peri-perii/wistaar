@@ -5,7 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { toast } from 'sonner';
-import { Loader2 } from 'lucide-react';
+import { Loader2, RefreshCw } from 'lucide-react';
+
 
 export default function WistiesManagement() {
   const [platformFeePercent, setPlatformFeePercent] = useState<number>(10);
@@ -16,6 +17,10 @@ export default function WistiesManagement() {
   const [adjustAmount, setAdjustAmount] = useState('');
   const [adjustReason, setAdjustReason] = useState('');
   const [isAdjusting, setIsAdjusting] = useState(false);
+
+  const [refundUserEmail, setRefundUserEmail] = useState('');
+  const [refundBookId, setRefundBookId] = useState('');
+  const [isProcessingRefund, setIsProcessingRefund] = useState(false);
 
   const [transactions, setTransactions] = useState<any[]>([]);
   const [txUserIdFilter, setTxUserIdFilter] = useState('');
@@ -52,6 +57,78 @@ export default function WistiesManagement() {
       }
     } catch (err: any) {
       console.error(err);
+    }
+  };
+
+  const processRefund = async () => {
+    if (!refundUserEmail.trim() || !refundBookId.trim()) {
+      toast.error('Please enter both a user email and a book ID');
+      return;
+    }
+    setIsProcessingRefund(true);
+    try {
+      // 1. Look up user by email
+      const { data: profile, error: profileError } = await supabase
+        .from('user_profiles' as any)
+        .select('id')
+        .eq('email', refundUserEmail.trim())
+        .maybeSingle();
+
+      if (profileError || !profile) {
+        toast.error('No user found with that email address');
+        setIsProcessingRefund(false);
+        return;
+      }
+      const userId = (profile as any).id;
+
+      // 2. Find the purchase row to get the amount paid
+      const { data: purchase, error: purchaseError } = await supabase
+        .from('book_purchases')
+        .select('id, amount')
+        .eq('user_id', userId)
+        .eq('book_id', refundBookId.trim())
+        .eq('payment_status', 'completed')
+        .maybeSingle();
+
+      if (purchaseError || !purchase) {
+        toast.error('No completed purchase found for this user + book combination');
+        setIsProcessingRefund(false);
+        return;
+      }
+
+      const refundAmount = (purchase as any).amount;
+
+      // 3. Credit Wisties equal to the book price
+      const { error: wistiesError } = await supabase.rpc('admin_adjust_wisties', {
+        p_user_id: userId,
+        p_amount: refundAmount,
+        p_desc: `Refund for book (ID: ${refundBookId.trim()})`,
+      });
+      if (wistiesError) throw wistiesError;
+
+      // 4. Remove the purchase record (removes from library)
+      const { error: deleteError } = await supabase
+        .from('book_purchases')
+        .delete()
+        .eq('id', (purchase as any).id);
+      if (deleteError) throw deleteError;
+
+      // 5. Send in-app notification to the user
+      await supabase.from('notifications' as any).insert({
+        user_id: userId,
+        title: '✅ Refund Processed',
+        message: `Your refund of ₹${refundAmount} has been credited to your Wisties balance. The book has been removed from your library.`,
+        type: 'refund_processed',
+      } as any);
+
+      toast.success(`Refund of ₹${refundAmount} credited. Book removed from library.`);
+      setRefundUserEmail('');
+      setRefundBookId('');
+      loadTransactions();
+    } catch (err: any) {
+      toast.error('Refund failed: ' + err.message);
+    } finally {
+      setIsProcessingRefund(false);
     }
   };
 
@@ -139,7 +216,7 @@ export default function WistiesManagement() {
 
   return (
     <div className="space-y-8">
-      <div className="grid md:grid-cols-2 gap-6">
+      <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
         {/* Platform Settings */}
         <Card>
           <CardHeader>
@@ -205,6 +282,53 @@ export default function WistiesManagement() {
             <Button onClick={adjustBalance} disabled={isAdjusting}>
               {isAdjusting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
               Adjust Balance
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Process Refund */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="font-serif text-lg">Process Refund</CardTitle>
+            <CardDescription className="font-sans text-sm">
+              Credit Wisties to user and remove the book from their library.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label className="font-sans text-xs uppercase tracking-wide text-muted-foreground">User Email</Label>
+              <Input
+                type="email"
+                placeholder="user@example.com"
+                value={refundUserEmail}
+                onChange={e => setRefundUserEmail(e.target.value)}
+                disabled={isProcessingRefund}
+                className="font-sans"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="font-sans text-xs uppercase tracking-wide text-muted-foreground">Book ID (UUID)</Label>
+              <Input
+                placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                value={refundBookId}
+                onChange={e => setRefundBookId(e.target.value)}
+                disabled={isProcessingRefund}
+                className="font-sans font-mono text-xs"
+              />
+            </div>
+            <div className="rounded-lg border border-border bg-secondary/40 p-3 text-xs font-sans text-muted-foreground space-y-1">
+              <p className="font-medium text-foreground">What this does:</p>
+              <p>1. Credits the full purchase amount as Wisties to the user's balance</p>
+              <p>2. Deletes the purchase record (removes book from their library)</p>
+              <p>3. Sends an in-app notification to the user</p>
+            </div>
+            <Button
+              onClick={processRefund}
+              disabled={isProcessingRefund}
+              className="w-full gap-2"
+            >
+              {isProcessingRefund ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+              {isProcessingRefund ? 'Processing...' : 'Process Refund'}
             </Button>
           </CardContent>
         </Card>

@@ -99,13 +99,13 @@ export default function RefundPolicy() {
 
         {/* How it works */}
         <section className="mb-14">
-          <h2 className="font-serif text-2xl text-foreground mb-6">How It Works</h2>
+          <h2 className="font-serif text-2xl text-foreground mb-6">How to Request a Refund</h2>
           <div className="space-y-0">
             {[
               { step: '1', title: 'Purchase a book', body: 'Buy any premium book on Wistaar using your preferred payment method or existing Wisties balance.' },
-              { step: '2', title: 'Request within 24 hours', body: 'Go to your Library, find the book, and click "Request Refund". The option disappears after 24 hours.' },
-              { step: '3', title: 'Email our support team', body: 'Send an email to support@wistaar.com with screenshots of your reading progress, your registered email, username, and the book\'s price.' },
-              { step: '4', title: 'Wisties credited instantly', body: 'Our team reviews your request and credits the full amount to your Wisties balance — ready to use on your next purchase.' },
+              { step: '2', title: 'Email us within 24 hours', body: 'Send an email to support@wistaar.com from your registered email address within 24 hours of purchase. Use the exact format below.' },
+              { step: '3', title: 'Attach reading screenshots', body: 'Your email must include screenshots showing your reading progress inside the book reader. This is mandatory for all refund requests.' },
+              { step: '4', title: 'Wisties credited, book removed', body: 'Our team reviews your request and credits the full amount to your Wisties balance. The book is then removed from your library automatically.' },
             ].map((item, i, arr) => (
               <div key={item.step} className="flex gap-5">
                 <div className="flex flex-col items-center">
@@ -124,6 +124,60 @@ export default function RefundPolicy() {
             ))}
           </div>
         </section>
+
+        {/* Email format */}
+        <section className="mb-14">
+          <h2 className="font-serif text-2xl text-foreground mb-4">Required Email Format</h2>
+          <p className="font-sans text-sm text-muted-foreground mb-4">
+            Send your refund request to{' '}
+            <a href="mailto:support@wistaar.com" className="text-foreground underline underline-offset-2 hover:text-accent transition-colors">
+              support@wistaar.com
+            </a>{' '}
+            using <strong className="text-foreground font-medium">your registered account email</strong> with the following subject and body:
+          </p>
+
+          {/* Subject line */}
+          <div className="rounded-xl border border-border overflow-hidden mb-4">
+            <div className="bg-secondary/60 border-b border-border px-4 py-2 flex items-center gap-2">
+              <span className="text-xs font-sans font-medium text-muted-foreground uppercase tracking-wide">Subject</span>
+            </div>
+            <div className="px-4 py-3 font-mono text-sm text-foreground">
+              Refund Request: [Book Title]
+            </div>
+          </div>
+
+          {/* Body */}
+          <div className="rounded-xl border border-border overflow-hidden">
+            <div className="bg-secondary/60 border-b border-border px-4 py-2 flex items-center gap-2">
+              <span className="text-xs font-sans font-medium text-muted-foreground uppercase tracking-wide">Body</span>
+            </div>
+            <pre className="px-4 py-4 font-mono text-sm text-foreground leading-relaxed whitespace-pre-wrap bg-background">
+{`Hello Support Team,
+
+I would like to request a refund for my purchase.
+
+- Username: @[your username]
+- Account Email: [your registered email]
+- Book Title: [book title]
+- Book Price: ₹[price]
+- Date of Purchase: [date]
+
+I have attached screenshots showing my reading progress.
+
+Thank you!`}
+            </pre>
+          </div>
+
+          <div className="mt-4 rounded-lg border border-amber-500/20 bg-amber-500/5 p-4">
+            <p className="text-xs font-sans font-medium text-amber-600 dark:text-amber-400 mb-1">⚠ Important</p>
+            <ul className="text-xs font-sans text-muted-foreground space-y-1">
+              <li>• You <strong className="text-foreground">must send from your registered email address</strong> — emails from other addresses will not be processed.</li>
+              <li>• Screenshots of reading progress are <strong className="text-foreground">mandatory</strong>. Requests without them will be declined.</li>
+              <li>• Refunds are only available within <strong className="text-foreground">24 hours</strong> of purchase.</li>
+            </ul>
+          </div>
+        </section>
+
 
         <div className="border-t border-border/60 mb-14" />
 
