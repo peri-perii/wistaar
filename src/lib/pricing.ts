@@ -3,7 +3,7 @@ export const WISTIES_THRESHOLD = 99;
 
 /** Basic breakdown used for pure-cash purchases. */
 export const calculatePriceBreakdown = (bookPrice: number, feePercent: number = 10) => {
-  const platformFee = 6.99;
+  const platformFee = 6;
   const authorEarnings = Number((bookPrice - platformFee).toFixed(2));
 
   return {
@@ -28,7 +28,7 @@ export const calculateSplitPayment = (
   feePercent: number = 10
 ) => {
   const canUseWisties = bookPrice > WISTIES_THRESHOLD;
-  const platformFee = 6.99;
+  const platformFee = 6;
 
   if (!canUseWisties) {
     return {
