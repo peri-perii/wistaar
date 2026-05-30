@@ -8,7 +8,7 @@ import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Clock, BookOpen, Star, Calendar, Play, IndianRupee, Loader2, ShoppingCart, Check, Tag, X } from "lucide-react";
+import { ArrowLeft, Clock, BookOpen, Star, Calendar, Play, IndianRupee, Loader2, ShoppingCart, Check, Tag, X, Sparkles } from "lucide-react";
 import BookReviews from "@/components/BookReviews";
 import SocialShare from "@/components/SocialShare";
 import WishlistButton from "@/components/WishlistButton";
@@ -18,8 +18,11 @@ import { useCart, useAddToCart } from "@/hooks/useCart";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { useCoupon } from "@/hooks/useCoupon";
-import { calculatePriceBreakdown } from "@/lib/pricing";
+import { calculatePriceBreakdown, calculateSplitPayment, WISTIES_THRESHOLD } from "@/lib/pricing";
 import { useSEO } from "@/hooks/useSEO";
+import { supabase } from "@/integrations/supabase/client";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 export default function BookDetail() {
   const { id } = useParams<{ id: string }>();
@@ -34,6 +37,18 @@ export default function BookDetail() {
   const addToCart = useAddToCart();
   const initiatePayment = useInitiatePayment();
   const [paying, setPaying] = useState(false);
+  const [wistiesBalance, setWistiesBalance] = useState(0);
+  const [useWisties, setUseWisties] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from('wisties_balance')
+      .select('balance')
+      .eq('user_id', user.id)
+      .maybeSingle()
+      .then(({ data }) => { if (data) setWistiesBalance(data.balance); });
+  }, [user]);
 
   const isInCart = cartItems?.some((item) => item.book_id === id);
 
@@ -295,7 +310,7 @@ export default function BookDetail() {
                     )}
                   </>
                 ) : (
-                  /* Premium book not purchased — show coupon input + buy + cart */
+                  /* Premium book not purchased — show coupon + Wisties toggle + buy */
                   <div className="w-full space-y-4">
                     {/* Coupon Code Input */}
                     <div className="space-y-2">
@@ -334,7 +349,7 @@ export default function BookDetail() {
                       )}
                     </div>
 
-                    {/* Price summary */}
+                    {/* Price summary (coupon applied) */}
                     {appliedCoupon && (
                       <div className="bg-muted/50 rounded-lg p-3 space-y-1 text-sm">
                         <div className="flex justify-between text-muted-foreground">
@@ -352,67 +367,149 @@ export default function BookDetail() {
                       </div>
                     )}
 
-                    {/* Action buttons */}
-                    <div className="flex flex-wrap gap-3">
-                      <Button
-                        size="lg"
-                        className="gap-2"
-                        disabled={paying}
-                        onClick={async () => {
-                          if (!user) { navigate("/auth"); return; }
-                          setPaying(true);
-                          try {
-                            await initiatePayment.mutateAsync({
-                              bookId: book.id,
-                              bookTitle: book.title,
-                              amount: finalAmount,
-                            });
-                            if (appliedCoupon) await incrementUsage(appliedCoupon.id);
-                            toast.success("Payment successful! You now have full access.");
-                          } catch {
-                            toast.error("Payment failed. Please try again.");
-                          } finally {
-                            setPaying(false);
-                          }
-                        }}
-                      >
-                        {paying ? (
-                          <Loader2 className="h-5 w-5 animate-spin" />
-                        ) : (
-                          <>
-                            <IndianRupee className="h-5 w-5" />
-                            {appliedCoupon
-                              ? `Buy for ₹${finalAmount.toFixed(0)}`
-                              : `Buy for ₹${book.priceAmount}`}
-                          </>
-                        )}
-                      </Button>
+                    {/* Wisties Toggle */}
+                    {(() => {
+                      const canUseWistiesHere = finalAmount > WISTIES_THRESHOLD;
+                      const split = calculateSplitPayment(finalAmount, wistiesBalance);
+                      const effectiveUseWisties = useWisties && canUseWistiesHere;
 
-                      <Button
-                        variant="outline"
-                        size="lg"
-                        className="gap-2"
-                        disabled={isInCart}
-                        onClick={() => {
-                          if (!user) { navigate("/auth"); return; }
-                          addToCart.mutate(book.id);
-                        }}
-                      >
-                        <ShoppingCart className="h-5 w-5" />
-                        {isInCart ? "In Cart" : "Buy Later"}
-                      </Button>
+                      return (
+                        <>
+                          <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg border">
+                            <div className="space-y-0.5">
+                              <Label htmlFor="bd-wisties-toggle" className="text-sm font-medium flex items-center gap-1.5">
+                                <Sparkles className="h-4 w-4 text-accent" />
+                                Pay with Wisties
+                              </Label>
+                              <p className="text-xs text-muted-foreground">
+                                {wistiesBalance > 0
+                                  ? `You have ₹${wistiesBalance} Wisties`
+                                  : "No Wisties balance"}
+                                {!canUseWistiesHere && wistiesBalance > 0
+                                  ? " · Only for books above ₹" + WISTIES_THRESHOLD
+                                  : ""}
+                              </p>
+                            </div>
+                            <Switch
+                              id="bd-wisties-toggle"
+                              checked={useWisties}
+                              onCheckedChange={setUseWisties}
+                              disabled={wistiesBalance <= 0 || !canUseWistiesHere}
+                            />
+                          </div>
 
-                      <Link to={readUrl}>
-                        <Button variant="ghost" size="lg" className="gap-2">
-                          <BookOpen className="h-5 w-5" />
-                          Preview Free Chapters
-                        </Button>
-                      </Link>
-                    </div>
-                    
-                    <p className="text-xs text-muted-foreground text-center pt-2">
-                      ₹{finalAmount.toFixed(2)} · Includes ₹{calculatePriceBreakdown(finalAmount).platformFee.toFixed(2)} platform fee that keeps Wistaar running
-                    </p>
+                          {/* Split breakdown */}
+                          {effectiveUseWisties && (
+                            <div className="bg-muted/40 rounded-lg p-3 text-sm space-y-1.5 border border-border">
+                              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Payment breakdown</p>
+                              <div className="flex justify-between text-muted-foreground">
+                                <span>Book price</span>
+                                <span className="flex items-center gap-0.5"><IndianRupee className="h-3 w-3" />{finalAmount.toFixed(0)}</span>
+                              </div>
+                              <div className="flex justify-between text-accent">
+                                <span className="flex items-center gap-1"><Sparkles className="h-3 w-3" />Wisties applied</span>
+                                <span>−₹{split.wistiesApplied.toFixed(0)}</span>
+                              </div>
+                              <div className="flex justify-between text-muted-foreground">
+                                <span>Cash subtotal</span>
+                                <span className="flex items-center gap-0.5"><IndianRupee className="h-3 w-3" />{split.cashBeforeFee.toFixed(0)}</span>
+                              </div>
+                              <div className="flex justify-between text-muted-foreground">
+                                <span>Platform fee (10%)</span>
+                                <span className="flex items-center gap-0.5"><IndianRupee className="h-3 w-3" />{split.platformFee.toFixed(2)}</span>
+                              </div>
+                              <div className="flex justify-between font-semibold text-foreground border-t border-border pt-1.5">
+                                <span>You pay today (cash)</span>
+                                <span className="flex items-center gap-0.5"><IndianRupee className="h-3 w-3" />{split.cashTotal.toFixed(2)}</span>
+                              </div>
+                              <p className="text-xs text-accent pt-0.5">✦ ₹{split.wistiesApplied.toFixed(0)} will be deducted from your Wisties balance</p>
+                            </div>
+                          )}
+
+                          {/* Action buttons */}
+                          <div className="flex flex-wrap gap-3">
+                            <Button
+                              size="lg"
+                              className="gap-2"
+                              disabled={paying}
+                              onClick={async () => {
+                                if (!user) { navigate("/auth"); return; }
+                                setPaying(true);
+                                try {
+                                  if (effectiveUseWisties) {
+                                    const { error } = await supabase.rpc('purchase_book_split_payment' as any, {
+                                      p_book_id: book.id,
+                                      p_book_title: book.title,
+                                      p_wisties_amount: split.wistiesApplied,
+                                      p_cash_amount: split.cashBeforeFee,
+                                    });
+                                    if (error) throw error;
+                                    setWistiesBalance(prev => prev - split.wistiesApplied);
+                                    if (appliedCoupon) await incrementUsage(appliedCoupon.id);
+                                    toast.success(`Purchased! ₹${split.wistiesApplied} Wisties + ₹${split.cashTotal.toFixed(0)} cash. Enjoy reading!`);
+                                  } else {
+                                    await initiatePayment.mutateAsync({
+                                      bookId: book.id,
+                                      bookTitle: book.title,
+                                      amount: finalAmount,
+                                    });
+                                    if (appliedCoupon) await incrementUsage(appliedCoupon.id);
+                                    toast.success("Payment successful! You now have full access.");
+                                  }
+                                } catch (err: any) {
+                                  toast.error(err.message || "Payment failed. Please try again.");
+                                } finally {
+                                  setPaying(false);
+                                }
+                              }}
+                            >
+                              {paying ? (
+                                <Loader2 className="h-5 w-5 animate-spin" />
+                              ) : effectiveUseWisties ? (
+                                <>
+                                  <Sparkles className="h-5 w-5" />
+                                  Pay ₹{split.cashTotal.toFixed(0)} + ₹{split.wistiesApplied} W
+                                </>
+                              ) : (
+                                <>
+                                  <IndianRupee className="h-5 w-5" />
+                                  {appliedCoupon
+                                    ? `Buy for ₹${finalAmount.toFixed(0)}`
+                                    : `Buy for ₹${book.priceAmount}`}
+                                </>
+                              )}
+                            </Button>
+
+                            <Button
+                              variant="outline"
+                              size="lg"
+                              className="gap-2"
+                              disabled={isInCart}
+                              onClick={() => {
+                                if (!user) { navigate("/auth"); return; }
+                                addToCart.mutate(book.id);
+                              }}
+                            >
+                              <ShoppingCart className="h-5 w-5" />
+                              {isInCart ? "In Cart" : "Buy Later"}
+                            </Button>
+
+                            <Link to={readUrl}>
+                              <Button variant="ghost" size="lg" className="gap-2">
+                                <BookOpen className="h-5 w-5" />
+                                Preview Free Chapters
+                              </Button>
+                            </Link>
+                          </div>
+
+                          <p className="text-xs text-muted-foreground text-center pt-2">
+                            {effectiveUseWisties
+                              ? `₹${split.wistiesApplied.toFixed(0)} Wisties + ₹${split.cashTotal.toFixed(2)} cash (incl. ₹${split.platformFee.toFixed(2)} platform fee)`
+                              : `₹${finalAmount.toFixed(2)} · Includes ₹${calculatePriceBreakdown(finalAmount).platformFee.toFixed(2)} platform fee`}
+                          </p>
+                        </>
+                      );
+                    })()}
                   </div>
                 )}
               </div>

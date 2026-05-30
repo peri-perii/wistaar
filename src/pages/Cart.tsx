@@ -5,13 +5,13 @@ import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { ShoppingCart, Trash2, IndianRupee, BookOpen, Loader2, Tag, Check, X } from "lucide-react";
+import { ShoppingCart, Trash2, IndianRupee, BookOpen, Loader2, Tag, Check, X, Sparkles } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useCart, useRemoveFromCart } from "@/hooks/useCart";
 import { useApprovedBooks } from "@/hooks/useApprovedBooks";
 import { useInitiatePayment } from "@/hooks/usePurchases";
 import { useCoupon } from "@/hooks/useCoupon";
-import { calculatePriceBreakdown } from "@/lib/pricing";
+import { calculateSplitPayment, WISTIES_THRESHOLD } from "@/lib/pricing";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Switch } from "@/components/ui/switch";
@@ -48,6 +48,9 @@ export default function Cart() {
     .filter(Boolean) as (NonNullable<ReturnType<typeof approvedBooks extends (infer T)[] | undefined ? () => T : never>> & { cartId: string })[];
 
   const total = cartBooks.reduce((sum, b) => sum + (b as any).priceAmount, 0);
+
+  // Toggle is only useful if at least one cart book qualifies
+  const hasEligibleBook = cartBooks.some((b: any) => b.priceAmount > WISTIES_THRESHOLD);
 
   const isLoading = cartLoading || authLoading;
 
@@ -94,20 +97,27 @@ export default function Cart() {
 
           {!isLoading && cartBooks.length > 0 && (
             <div className="space-y-4">
+              {/* Wisties toggle */}
               <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg border">
                 <div className="space-y-0.5">
-                  <Label htmlFor="wisties-toggle" className="text-base font-medium">
+                  <Label htmlFor="wisties-toggle" className="text-base font-medium flex items-center gap-1.5">
+                    <Sparkles className="h-4 w-4 text-accent" />
                     Use Wisties balance
                   </Label>
                   <p className="text-sm text-muted-foreground">
-                    You have ₹{wistiesBalance} available
+                    {wistiesBalance > 0
+                      ? `₹${wistiesBalance} available`
+                      : "No Wisties balance"}
+                    {!hasEligibleBook && wistiesBalance > 0
+                      ? " · Only applicable for books above ₹99"
+                      : ""}
                   </p>
                 </div>
                 <Switch
                   id="wisties-toggle"
                   checked={useWisties}
                   onCheckedChange={setUseWisties}
-                  disabled={wistiesBalance <= 0}
+                  disabled={wistiesBalance <= 0 || !hasEligibleBook}
                 />
               </div>
 
@@ -171,29 +181,33 @@ function CartBookItem({
     validateCoupon, removeCoupon, incrementUsage,
   } = useCoupon(book.priceAmount);
 
+  // Whether this specific book is eligible for Wisties
+  const canUseWistiesForBook = finalAmount > WISTIES_THRESHOLD;
+  const effectiveUseWisties = useWisties && canUseWistiesForBook;
+
+  // Split payment breakdown
+  const split = calculateSplitPayment(finalAmount, wistiesBalance);
+
   const handleBuy = async () => {
     setPayingBookId(book.id);
     try {
-      if (useWisties) {
-        if (wistiesBalance < finalAmount) {
-          toast.error("Insufficient Wisties balance. Please disable Wisties to pay with card/UPI.");
-          setPayingBookId(null);
-          return;
-        }
-
-        const { error } = await supabase.rpc('purchase_book_with_wisties', {
+      if (effectiveUseWisties) {
+        // Split payment: Wisties portion + cash portion (mocked)
+        const { error } = await supabase.rpc('purchase_book_split_payment' as any, {
           p_book_id: book.id,
-          p_amount: finalAmount,
-          p_book_title: book.title
+          p_book_title: book.title,
+          p_wisties_amount: split.wistiesApplied,
+          p_cash_amount: split.cashBeforeFee,
         });
 
         if (error) throw error;
 
-        onWistiesUpdate(wistiesBalance - finalAmount);
+        onWistiesUpdate(wistiesBalance - split.wistiesApplied);
         if (appliedCoupon) await incrementUsage(appliedCoupon.id);
         removeFromCart.mutate(book.id);
-        toast.success("Purchased with Wisties! Book added to your library.");
+        toast.success(`Purchased! ₹${split.wistiesApplied} Wisties + ₹${split.cashTotal.toFixed(0)} cash. Enjoy reading!`);
       } else {
+        // Pure cash payment
         await initiatePayment.mutateAsync({ bookId: book.id, bookTitle: book.title, amount: finalAmount });
         if (appliedCoupon) await incrementUsage(appliedCoupon.id);
         removeFromCart.mutate(book.id);
@@ -244,6 +258,11 @@ function CartBookItem({
                 <IndianRupee className="w-3 h-3" />{book.priceAmount}
               </Badge>
             )}
+            {!canUseWistiesForBook && useWisties && (
+              <Badge variant="outline" className="text-xs text-muted-foreground">
+                Wisties not applicable (≤₹{WISTIES_THRESHOLD})
+              </Badge>
+            )}
           </div>
         </div>
 
@@ -255,6 +274,34 @@ function CartBookItem({
           <Trash2 className="h-4 w-4 text-muted-foreground" />
         </Button>
       </div>
+
+      {/* Wisties split breakdown */}
+      {effectiveUseWisties && (
+        <div className="bg-muted/40 rounded-lg p-3 text-sm space-y-1.5 border border-border">
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Payment breakdown</p>
+          <div className="flex justify-between text-muted-foreground">
+            <span>Book price</span>
+            <span className="flex items-center gap-0.5"><IndianRupee className="h-3 w-3" />{finalAmount.toFixed(0)}</span>
+          </div>
+          <div className="flex justify-between text-accent">
+            <span className="flex items-center gap-1"><Sparkles className="h-3 w-3" />Wisties applied</span>
+            <span>−₹{split.wistiesApplied.toFixed(0)}</span>
+          </div>
+          <div className="flex justify-between text-muted-foreground">
+            <span>Cash subtotal</span>
+            <span className="flex items-center gap-0.5"><IndianRupee className="h-3 w-3" />{split.cashBeforeFee.toFixed(0)}</span>
+          </div>
+          <div className="flex justify-between text-muted-foreground">
+            <span>Platform fee (10%)</span>
+            <span className="flex items-center gap-0.5"><IndianRupee className="h-3 w-3" />{split.platformFee.toFixed(2)}</span>
+          </div>
+          <div className="flex justify-between font-semibold text-foreground border-t border-border pt-1.5">
+            <span>You pay today</span>
+            <span className="flex items-center gap-0.5"><IndianRupee className="h-3 w-3" />{split.cashTotal.toFixed(2)}</span>
+          </div>
+          <p className="text-xs text-accent pt-1">✦ Remaining ₹{split.wistiesApplied.toFixed(0)} from your Wisties balance</p>
+        </div>
+      )}
 
       {/* Coupon input */}
       <div className="space-y-2">
@@ -287,15 +334,20 @@ function CartBookItem({
           >
             {payingBookId === book.id ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
+            ) : effectiveUseWisties ? (
               <>
-                {useWisties ? 'Pay Wisties' : 'Buy'} {appliedCoupon ? `₹${finalAmount.toFixed(0)}` : `₹${book.priceAmount}`}
+                <Sparkles className="h-3 w-3" />
+                Pay ₹{split.cashTotal.toFixed(0)}
               </>
+            ) : (
+              <>Buy ₹{appliedCoupon ? finalAmount.toFixed(0) : book.priceAmount}</>
             )}
           </Button>
         </div>
         <p className="text-[11px] text-muted-foreground mt-1">
-          ₹{finalAmount.toFixed(2)} · Includes ₹{calculatePriceBreakdown(finalAmount).platformFee.toFixed(2)} platform fee that keeps Wistaar running
+          {effectiveUseWisties
+            ? `₹${split.wistiesApplied.toFixed(0)} Wisties + ₹${split.cashTotal.toFixed(2)} cash (incl. ₹${split.platformFee.toFixed(2)} platform fee)`
+            : `₹${finalAmount.toFixed(2)} · Incl. ₹${(finalAmount * 0.1).toFixed(2)} platform fee`}
         </p>
         {couponError && <p className="text-xs text-destructive">{couponError}</p>}
         {appliedCoupon && (
