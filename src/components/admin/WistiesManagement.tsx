@@ -81,46 +81,21 @@ export default function WistiesManagement() {
       }
       const userId = (profile as any).id;
 
-      // 2. Find the purchase row to get the amount paid
-      const { data: purchase, error: purchaseError } = await supabase
-        .from('book_purchases')
-        .select('id, amount')
-        .eq('user_id', userId)
-        .eq('book_id', refundBookId.trim())
-        .eq('payment_status', 'completed')
-        .maybeSingle();
+      // 2. Call the atomic SECURITY DEFINER refund function.
+      //    This runs as the DB owner so it bypasses RLS and can:
+      //    - credit Wisties, delete the purchase record, and send a notification
+      //    — all in one transaction.
+      const { data: result, error: refundError } = await supabase.rpc(
+        'admin_process_refund' as any,
+        {
+          p_user_id: userId,
+          p_book_id: refundBookId.trim(),
+        }
+      );
 
-      if (purchaseError || !purchase) {
-        toast.error('No completed purchase found for this user + book combination');
-        setIsProcessingRefund(false);
-        return;
-      }
+      if (refundError) throw refundError;
 
-      const refundAmount = (purchase as any).amount;
-
-      // 3. Credit Wisties equal to the book price
-      const { error: wistiesError } = await supabase.rpc('admin_adjust_wisties', {
-        p_user_id: userId,
-        p_amount: refundAmount,
-        p_desc: `Refund for book (ID: ${refundBookId.trim()})`,
-      });
-      if (wistiesError) throw wistiesError;
-
-      // 4. Remove the purchase record (removes from library)
-      const { error: deleteError } = await supabase
-        .from('book_purchases')
-        .delete()
-        .eq('id', (purchase as any).id);
-      if (deleteError) throw deleteError;
-
-      // 5. Send in-app notification to the user
-      await supabase.from('notifications' as any).insert({
-        user_id: userId,
-        title: '✅ Refund Processed',
-        message: `Your refund of ₹${refundAmount} has been credited to your Wisties balance. The book has been removed from your library.`,
-        type: 'refund_processed',
-      } as any);
-
+      const refundAmount = (result as any)?.refund_amount ?? '?';
       toast.success(`Refund of ₹${refundAmount} credited. Book removed from library.`);
       setRefundUserEmail('');
       setRefundBookId('');
