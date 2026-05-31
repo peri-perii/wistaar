@@ -20,7 +20,7 @@ export const calculatePriceBreakdown = (bookPrice: number, feePercent: number = 
  * - Wisties are only applicable when bookPrice > WISTIES_THRESHOLD (₹99).
  * - User must always pay at least ₹99 in cash (the threshold amount).
  * - Wisties can cover at most (bookPrice - 99) rupees, capped by the user's balance.
- * - Platform fee is a flat ₹6.99.
+ * - Platform fee is a flat ₹6.
  */
 export const calculateSplitPayment = (
   bookPrice: number,

@@ -288,10 +288,10 @@ function CartBookItem({
   /* Pre-compute display values for the order summary */
   const platformFee = effectiveUseWisties
     ? split.platformFee
-    : Number((finalAmount * 0.1).toFixed(2));
+    : 6;
   const totalPayable = effectiveUseWisties
     ? split.cashTotal
-    : Number((finalAmount + finalAmount * 0.1).toFixed(2));
+    : Number((finalAmount + 6).toFixed(2));
 
   /* NEW: clicking Buy opens the confirmation dialog */
   const handleBuyClick = () => {
@@ -440,7 +440,7 @@ function CartBookItem({
 
         {/* Platform fee */}
         <div className="flex justify-between text-muted-foreground">
-          <span>Platform fee (10%)</span>
+          <span>Platform fee (₹6)</span>
           <span className="flex items-center gap-0.5">
             <IndianRupee className="h-3 w-3" />{platformFee.toFixed(2)}
           </span>

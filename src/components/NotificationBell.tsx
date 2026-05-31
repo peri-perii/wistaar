@@ -9,6 +9,8 @@ import {
   ShoppingBag,
   XCircle,
   Sparkles,
+  Users,
+  BarChart2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -49,6 +51,21 @@ const TYPE_CONFIG: Record<
     icon: <ShoppingBag className="h-3.5 w-3.5" />,
     bg: "bg-blue-500/15 text-blue-500",
     label: "Purchase",
+  },
+  new_post: {
+    icon: <Users className="h-3.5 w-3.5" />,
+    bg: "bg-[#c84b2f]/15 text-[#c84b2f]",
+    label: "Post",
+  },
+  new_poll: {
+    icon: <BarChart2 className="h-3.5 w-3.5" />,
+    bg: "bg-amber-500/15 text-amber-500",
+    label: "Poll",
+  },
+  new_book: {
+    icon: <BookOpen className="h-3.5 w-3.5" />,
+    bg: "bg-emerald-500/15 text-emerald-500",
+    label: "Book",
   },
 };
 

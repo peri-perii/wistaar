@@ -6,6 +6,8 @@ import { useAuth } from "./useAuth";
 export interface Notification {
   id: string;
   user_id: string;
+  actor_id: string | null;
+  entity_id: string | null;
   title: string;
   message: string;
   type: string;
