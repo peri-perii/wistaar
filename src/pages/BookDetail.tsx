@@ -240,7 +240,17 @@ export default function BookDetail() {
                 </h1>
 
                 <p className="text-lg text-muted-foreground">
-                  by <span className="text-foreground">{book.author}</span>
+                  by{" "}
+                  {book.authorUsername || book.authorId ? (
+                    <Link
+                      to={`/author/${book.authorUsername ?? book.authorId}`}
+                      className="text-foreground hover:text-primary transition-colors underline-offset-4 hover:underline"
+                    >
+                      {book.author}
+                    </Link>
+                  ) : (
+                    <span className="text-foreground">{book.author}</span>
+                  )}
                 </p>
               </div>
 

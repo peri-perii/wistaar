@@ -6,6 +6,8 @@ export interface ApprovedBook {
   title: string;
   author: string;
   authorBio: string;
+  authorUsername: string | null;   // slug for /author/:username
+  authorId: string;                // fallback for linking
   genre: string;
   price: "free" | "premium";
   priceAmount: number;
@@ -36,7 +38,7 @@ export function useApprovedBooks() {
       const authorIds = [...new Set(submissions.map((s) => s.author_id))];
       const { data: profiles } = await supabase
         .from("profiles")
-        .select("user_id, display_name, bio")
+        .select("user_id, display_name, bio, username")
         .in("user_id", authorIds);
 
       const profileMap = new Map(
@@ -50,6 +52,8 @@ export function useApprovedBooks() {
           title: s.title,
           author: profile?.display_name || "Unknown Author",
           authorBio: profile?.bio || "",
+          authorUsername: profile?.username || null,
+          authorId: s.author_id,
           genre: s.genre,
           price: s.price > 0 ? "premium" : "free",
           priceAmount: Number(s.price),
