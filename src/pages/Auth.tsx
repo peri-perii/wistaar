@@ -19,6 +19,7 @@ const passwordSchema = z.string().min(6, 'Password must be at least 6 characters
 export default function Auth() {
   const [view, setView] = useState<'select' | 'auth'>('select');
   const [isSignUp, setIsSignUp] = useState(false);
+  const [selectedRole, setSelectedRole] = useState<'reader' | 'author'>('reader');
 
   useSEO({
     title: view === 'select' ? 'Get Started' : (isSignUp ? 'Create Account' : 'Sign In'),
@@ -157,70 +158,102 @@ export default function Auth() {
                 <div className="grid sm:grid-cols-2 gap-6 text-left max-w-2xl mx-auto">
                   {/* Reader Card */}
                   <motion.div
-                    whileHover={{ y: -4, borderColor: "rgba(200, 75, 47, 0.4)" }}
-                    className="bg-[#121212]/30 border border-border/30 rounded-xl p-6 flex flex-col justify-between space-y-6 transition-all duration-300"
+                    whileHover={{ y: -4 }}
+                    onClick={() => setSelectedRole('reader')}
+                    style={{
+                      border: selectedRole === 'reader' ? '1px solid #c84b2f' : '1px solid #2a2a2a',
+                      background: selectedRole === 'reader' ? 'rgba(200, 75, 47, 0.08)' : 'transparent',
+                    }}
+                    className="rounded-xl p-6 flex flex-col space-y-6 cursor-pointer transition-all duration-300"
                   >
                     <div className="space-y-4">
-                      <div className="w-12 h-12 rounded-lg bg-[#c84b2f]/10 flex items-center justify-center">
-                        <BookOpen className="w-6 h-6 text-[#c84b2f]" />
+                      <div className="w-12 h-12 rounded-lg flex items-center justify-center"
+                        style={{ background: selectedRole === 'reader' ? 'rgba(200, 75, 47, 0.15)' : 'rgba(255,255,255,0.04)' }}
+                      >
+                        <BookOpen
+                          className="w-6 h-6 transition-colors duration-300"
+                          style={{ color: selectedRole === 'reader' ? '#c84b2f' : '#666666' }}
+                        />
                       </div>
                       <div className="space-y-2">
-                        <h3 className="text-xl font-serif font-medium text-foreground">Start as Reader</h3>
+                        <h3
+                          className="text-xl font-serif font-medium transition-colors duration-300"
+                          style={{ color: selectedRole === 'reader' ? '#c84b2f' : '#ffffff' }}
+                        >
+                          Start as Reader
+                        </h3>
                         <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
                           Discover, purchase, and read premium independent books. Follow and support your favorite writers.
                         </p>
                       </div>
                     </div>
-                    <Button 
-                      onClick={() => {
-                        setIsSignUp(true);
-                        setView('auth');
-                      }}
-                      className="w-full bg-[#c84b2f] hover:bg-[#c84b2f]/90 text-white font-semibold h-11"
-                    >
-                      Join as Reader
-                    </Button>
                   </motion.div>
 
                   {/* Author Card */}
                   <motion.div
-                    whileHover={{ y: -4, borderColor: "rgba(200, 75, 47, 0.4)" }}
-                    className="bg-[#121212]/30 border border-border/30 rounded-xl p-6 flex flex-col justify-between space-y-6 transition-all duration-300"
+                    whileHover={{ y: -4 }}
+                    onClick={() => setSelectedRole('author')}
+                    style={{
+                      border: selectedRole === 'author' ? '1px solid #c84b2f' : '1px solid #2a2a2a',
+                      background: selectedRole === 'author' ? 'rgba(200, 75, 47, 0.08)' : 'transparent',
+                    }}
+                    className="rounded-xl p-6 flex flex-col space-y-6 cursor-pointer transition-all duration-300"
                   >
                     <div className="space-y-4">
-                      <div className="w-12 h-12 rounded-lg bg-[#c84b2f]/10 flex items-center justify-center">
-                        <PenLine className="w-6 h-6 text-[#c84b2f]" />
+                      <div className="w-12 h-12 rounded-lg flex items-center justify-center"
+                        style={{ background: selectedRole === 'author' ? 'rgba(200, 75, 47, 0.15)' : 'rgba(255,255,255,0.04)' }}
+                      >
+                        <PenLine
+                          className="w-6 h-6 transition-colors duration-300"
+                          style={{ color: selectedRole === 'author' ? '#c84b2f' : '#666666' }}
+                        />
                       </div>
                       <div className="space-y-2">
-                        <h3 className="text-xl font-serif font-medium text-foreground">Start as Author</h3>
+                        <h3
+                          className="text-xl font-serif font-medium transition-colors duration-300"
+                          style={{ color: selectedRole === 'author' ? '#c84b2f' : '#ffffff' }}
+                        >
+                          Start as Author
+                        </h3>
                         <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
                           Publish, distribute, and monetize your original manuscripts. Earn a transparent 65% royalty on sales.
                         </p>
                       </div>
                     </div>
-                    <Button 
-                      onClick={() => navigate('/author/signup')}
-                      variant="outline"
-                      className="w-full border-border/40 hover:border-[#c84b2f] hover:text-[#c84b2f] font-semibold h-11"
-                    >
-                      Join as Author
-                    </Button>
                   </motion.div>
                 </div>
 
-                {/* Existing user link */}
-                <p className="text-sm text-muted-foreground">
-                  Already have an account?{" "}
-                  <button
+                {/* Single CTA button */}
+                <div className="flex flex-col items-center gap-4 max-w-2xl mx-auto w-full">
+                  <Button
                     onClick={() => {
-                      setIsSignUp(false);
-                      setView('auth');
+                      if (selectedRole === 'reader') {
+                        setIsSignUp(true);
+                        setView('auth');
+                      } else {
+                        navigate('/author/signup');
+                      }
                     }}
-                    className="text-foreground hover:text-[#c84b2f] font-semibold underline underline-offset-4 transition-colors"
+                    className="w-full sm:w-72 h-12 font-semibold text-white text-base"
+                    style={{ background: '#c84b2f' }}
                   >
-                    Sign in
-                  </button>
-                </p>
+                    {selectedRole === 'reader' ? 'Join as Reader' : 'Join as Author'}
+                  </Button>
+
+                  {/* Existing user link */}
+                  <p className="text-sm text-muted-foreground">
+                    Already have an account?{" "}
+                    <button
+                      onClick={() => {
+                        setIsSignUp(false);
+                        setView('auth');
+                      }}
+                      className="text-foreground hover:text-[#c84b2f] font-semibold underline underline-offset-4 transition-colors"
+                    >
+                      Sign in
+                    </button>
+                  </p>
+                </div>
               </div>
             </div>
 

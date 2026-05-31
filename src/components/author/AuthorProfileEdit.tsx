@@ -111,28 +111,47 @@ export default function AuthorProfileEdit({ userId }: AuthorProfileEditProps) {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // ── Validate MIME type ────────────────────────────────────────────────────
+    const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      toast({
+        title: "Invalid file type",
+        description: "Please select a JPG, PNG, or WEBP image.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // ── Validate size (< 2 MB) ───────────────────────────────────────────────
+    if (file.size > 2 * 1024 * 1024) {
+      toast({
+        title: "File too large",
+        description: "Please select an image under 2 MB.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsSaving(true);
     try {
-      const fileExt = file.name.split(".").pop();
-      const fileName = `${userId}-${Math.random()}.${fileExt}`;
-      const filePath = `avatars/${fileName}`;
+      // Stable path: {userId}/avatar.{ext} — upsert replaces old avatar cleanly
+      const ext = file.name.split(".").pop() ?? 'jpg';
+      const filePath = `${userId}/avatar.${ext}`;
 
-      // Upload image to profiles bucket
       const { error: uploadError } = await supabase.storage
-        .from("profiles")
-        .upload(filePath, file);
+        .from("avatars")             // ← correct bucket
+        .upload(filePath, file, { upsert: true, contentType: file.type });
 
       if (uploadError) throw uploadError;
 
-      // Get public URL
       const { data } = supabase.storage
-        .from("profiles")
+        .from("avatars")             // ← correct bucket
         .getPublicUrl(filePath);
 
       setAvatarUrl(data.publicUrl);
       toast({
         title: "Avatar uploaded",
-        description: "Click save changes to update your profile.",
+        description: "Click Save Changes to update your profile.",
       });
     } catch (err: any) {
       toast({

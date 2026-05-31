@@ -1,110 +1,116 @@
-import { useState, useEffect, useCallback } from "react";
+// ─── Cookie consent hook ──────────────────────────────────────────────────────
+// Single source of truth for all consent state across the app.
+// Consent is persisted as JSON in the 'wistaar-consent' cookie (1 year).
+// Format: { "essential": true, "functional": true, "analytics": false, "personalization": false }
 
-export type CookieCategory = "essential" | "analytics" | "marketing";
+import { useState, useEffect, useCallback } from 'react';
+import {
+  ConsentMap,
+  getConsentMap,
+  setConsentMap,
+  hasAnyConsent,
+} from '@/lib/cookies';
 
-export interface CookiePreferences {
-  essential: true; // Always true — can't be disabled
-  analytics: boolean;
-  marketing: boolean;
-  consentedAt: string | null;
-}
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-const STORAGE_KEY = "wistaar-cookie-consent";
+export type { ConsentMap };
 
-const DEFAULT_PREFS: CookiePreferences = {
-  essential: true,
-  analytics: false,
-  marketing: false,
-  consentedAt: null,
+export type CustomCategories = Omit<ConsentMap, 'essential'>;
+
+const DEFAULT_CONSENT: ConsentMap = {
+  essential:       true,
+  functional:      false,
+  analytics:       false,
+  personalization: false,
 };
 
-function loadPrefs(): CookiePreferences | null {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as CookiePreferences;
-    // Basic shape validation
-    if (typeof parsed.essential !== "boolean" || !parsed.consentedAt) return null;
-    return { ...parsed, essential: true }; // Always enforce essential = true
-  } catch {
-    return null;
-  }
-}
-
-function savePrefs(prefs: CookiePreferences) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs));
-}
+// ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export function useCookieConsent() {
-  const [preferences, setPreferences] = useState<CookiePreferences | null>(
-    () => loadPrefs()
-  );
+  // Load from cookie on mount
+  const [consent, setConsent] = useState<ConsentMap>(() => getConsentMap() ?? DEFAULT_CONSENT);
   const [showBanner, setShowBanner] = useState(false);
 
+  // Show banner after a small delay if no consent yet (avoids flash on load)
   useEffect(() => {
-    // Delay to avoid flash on page load
     const timer = setTimeout(() => {
-      if (!preferences?.consentedAt) {
-        setShowBanner(true);
-      }
+      if (!hasAnyConsent()) setShowBanner(true);
     }, 800);
     return () => clearTimeout(timer);
-  }, [preferences]);
+  }, []);
 
-  const hasConsented = !!preferences?.consentedAt;
+  // ── Derived booleans for easy consumption ─────────────────────────────────
+  const hasFunctional      = consent.functional;
+  const hasAnalytics       = consent.analytics;
+  const hasPersonalization = consent.personalization;
+  const hasConsented       = hasAnyConsent();
+
+  // ── Actions ───────────────────────────────────────────────────────────────
 
   const acceptAll = useCallback(() => {
-    const prefs: CookiePreferences = {
-      essential: true,
-      analytics: true,
-      marketing: true,
-      consentedAt: new Date().toISOString(),
+    const map: ConsentMap = {
+      essential:       true,
+      functional:      true,
+      analytics:       true,
+      personalization: true,
     };
-    savePrefs(prefs);
-    setPreferences(prefs);
+    setConsentMap({ functional: true, analytics: true, personalization: true });
+    setConsent(map);
     setShowBanner(false);
   }, []);
 
-  const rejectNonEssential = useCallback(() => {
-    const prefs: CookiePreferences = {
-      essential: true,
-      analytics: false,
-      marketing: false,
-      consentedAt: new Date().toISOString(),
+  const acceptEssential = useCallback(() => {
+    const map: ConsentMap = {
+      essential:       true,
+      functional:      false,
+      analytics:       false,
+      personalization: false,
     };
-    savePrefs(prefs);
-    setPreferences(prefs);
+    setConsentMap({ functional: false, analytics: false, personalization: false });
+    setConsent(map);
     setShowBanner(false);
   }, []);
 
-  const saveCustom = useCallback(
-    (custom: Pick<CookiePreferences, "analytics" | "marketing">) => {
-      const prefs: CookiePreferences = {
-        essential: true,
-        analytics: custom.analytics,
-        marketing: custom.marketing,
-        consentedAt: new Date().toISOString(),
-      };
-      savePrefs(prefs);
-      setPreferences(prefs);
-      setShowBanner(false);
-    },
-    []
-  );
+  const saveCustom = useCallback((categories: CustomCategories) => {
+    const map: ConsentMap = { essential: true, ...categories };
+    setConsentMap(categories);
+    setConsent(map);
+    setShowBanner(false);
+  }, []);
 
   const resetConsent = useCallback(() => {
-    localStorage.removeItem(STORAGE_KEY);
-    setPreferences(null);
+    // Clear the cookie
+    document.cookie = 'wistaar-consent=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/';
+    setConsent(DEFAULT_CONSENT);
     setShowBanner(true);
   }, []);
 
+  // ── Legacy compatibility (CookieConsent.tsx still calls these) ────────────
+  /** @deprecated Use acceptEssential instead */
+  const rejectNonEssential = acceptEssential;
+
   return {
-    preferences: preferences ?? DEFAULT_PREFS,
+    // Full consent object
+    consent,
+    // Convenient booleans
     hasConsented,
+    hasFunctional,
+    hasAnalytics,
+    hasPersonalization,
+    // Banner visibility
     showBanner,
+    // Actions
     acceptAll,
-    rejectNonEssential,
+    acceptEssential,
+    rejectNonEssential,   // legacy alias
     saveCustom,
     resetConsent,
+    // Legacy shape — CookieConsent.tsx still reads preferences.analytics/marketing
+    preferences: {
+      essential:   true  as const,
+      analytics:   consent.analytics,
+      marketing:   consent.personalization,  // mapped
+      consentedAt: hasAnyConsent() ? 'set' : null,
+    },
   };
 }

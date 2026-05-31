@@ -172,30 +172,45 @@ export default function ReaderProfile() {
     const file = e.target.files?.[0];
     if (!file || !user) return;
 
-    if (!file.type.startsWith("image/")) {
-      toast({ title: "Invalid file", description: "Please select an image file.", variant: "destructive" });
+    // ── Validate MIME type (jpg / png / webp only) ──────────────────────────
+    const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      toast({
+        title: "Invalid file type",
+        description: "Please select a JPG, PNG, or WEBP image.",
+        variant: "destructive",
+      });
       return;
     }
 
+    // ── Validate size (< 2 MB) ──────────────────────────────────────────────
     if (file.size > 2 * 1024 * 1024) {
-      toast({ title: "File too large", description: "Please select an image under 2MB.", variant: "destructive" });
+      toast({
+        title: "File too large",
+        description: "Please select an image under 2 MB.",
+        variant: "destructive",
+      });
       return;
     }
 
     setIsUploading(true);
     try {
-      const ext = file.name.split(".").pop();
-      const filePath = `${user.id}/avatar-${Date.now()}.${ext}`;
+      // Stable path: {userId}/avatar.{ext} — upsert replaces old avatar
+      const ext = file.name.split(".").pop() ?? 'jpg';
+      const filePath = `${user.id}/avatar.${ext}`;
 
       const { error: uploadError } = await supabase.storage
-        .from("profiles")
-        .upload(filePath, file, { upsert: true });
+        .from("avatars")              // ← correct bucket
+        .upload(filePath, file, { upsert: true, contentType: file.type });
 
       if (uploadError) throw uploadError;
 
-      const { data: { publicUrl } } = supabase.storage.from("profiles").getPublicUrl(filePath);
+      const { data: { publicUrl } } = supabase.storage
+        .from("avatars")             // ← correct bucket
+        .getPublicUrl(filePath);
+
       setAvatarUrl(publicUrl);
-      toast({ title: "Avatar uploaded", description: "Don't forget to save changes to complete updates." });
+      toast({ title: "Avatar uploaded", description: "Don't forget to save changes to update your profile." });
     } catch (err: any) {
       toast({ title: "Upload failed", description: err.message, variant: "destructive" });
     } finally {
