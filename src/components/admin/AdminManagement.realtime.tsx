@@ -71,8 +71,27 @@ export function AdminManagement() {
   })
   const { toast } = useToast()
 
+  // ── Initial load ──────────────────────────────────────────────────────────
   useEffect(() => {
     loadAdmins()
+  }, [])
+
+  // ── Realtime subscription (set up once, not inside loadAdmins) ────────────
+  useEffect(() => {
+    const channel = supabase
+      .channel('admin-roles-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'user_roles' }, () => {
+        loadAdmins()
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'admin_permissions' }, () => {
+        loadAdmins()
+      })
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const loadAdmins = async () => {
@@ -97,20 +116,6 @@ export function AdminManagement() {
       }))
 
       setAdmins(transformedAdmins)
-
-      const realtimeSub = supabase
-        .channel('admin-roles-realtime')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'user_roles' }, () => {
-          loadAdmins()
-        })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'admin_permissions' }, () => {
-          loadAdmins()
-        })
-        .subscribe()
-
-      return () => {
-        supabase.removeChannel(realtimeSub)
-      }
     } catch (error: any) {
       toast({ title: 'Error loading admins', description: error.message, variant: 'destructive' })
     } finally {
