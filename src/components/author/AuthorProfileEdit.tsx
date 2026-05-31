@@ -11,9 +11,11 @@ import { User, Image, ArrowRight } from "lucide-react";
 
 interface AuthorProfileEditProps {
   userId: string;
+  onSuccess?: () => void;
+  onCancel?: () => void;
 }
 
-export default function AuthorProfileEdit({ userId }: AuthorProfileEditProps) {
+export default function AuthorProfileEdit({ userId, onSuccess, onCancel }: AuthorProfileEditProps) {
   const { toast } = useToast();
   const [displayName, setDisplayName] = useState("");
   const [bio, setBio] = useState("");
@@ -93,9 +95,10 @@ export default function AuthorProfileEdit({ userId }: AuthorProfileEditProps) {
       if (error) throw error;
 
       toast({
-        title: "Profile updated successfully",
+        title: "Profile updated!",
         description: "Your changes are now live on your public profile.",
       });
+      onSuccess?.();
     } catch (err: any) {
       toast({
         title: "Update failed",
@@ -257,9 +260,24 @@ export default function AuthorProfileEdit({ userId }: AuthorProfileEditProps) {
                 <ArrowRight className="w-4 h-4" />
               </a>
             )}
-            <Button type="submit" disabled={isSaving} className="ml-auto w-32">
-              {isSaving ? "Saving..." : "Save Changes"}
-            </Button>
+            <div className="ml-auto flex items-center gap-3">
+              {onCancel && (
+                <button
+                  type="button"
+                  onClick={onCancel}
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors px-1"
+                >
+                  Cancel
+                </button>
+              )}
+              <Button
+                type="submit"
+                disabled={isSaving}
+                className="w-36 bg-[#c84b2f] hover:bg-[#c84b2f]/90 text-white font-semibold"
+              >
+                {isSaving ? "Saving..." : "Save Changes"}
+              </Button>
+            </div>
           </div>
         </form>
       </CardContent>

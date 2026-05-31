@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft, SlidersHorizontal, X } from "lucide-react";
+import { SlidersHorizontal, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -13,6 +13,7 @@ import SearchBar from "@/components/SearchBar";
 import FilterSelect from "@/components/FilterSelect";
 import ExploreBookCard from "@/components/ExploreBookCard";
 import ApprovedBookCard from "@/components/ApprovedBookCard";
+import Navigation from "@/components/Navigation";
 import { mockBooks, genres, sortOptions } from "@/data/books";
 import { useApprovedBooks } from "@/hooks/useApprovedBooks";
 import { useSEO } from "@/hooks/useSEO";
@@ -126,24 +127,9 @@ const Explore = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border bg-background sticky top-0 z-40">
-        <div className="container-editorial py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Link to="/" className="text-muted-foreground hover:text-foreground transition-colors">
-                <ArrowLeft className="w-5 h-5" />
-              </Link>
-              <h1 className="text-xl font-semibold text-foreground">Explore</h1>
-            </div>
-            <Link to="/" className="text-lg font-semibold tracking-tight text-foreground">
-              Wistaar
-            </Link>
-          </div>
-        </div>
-      </header>
+      <Navigation />
 
-      <main className="container-editorial py-8 lg:py-12">
+      <main className="container-editorial pt-24 pb-8 lg:pt-28 lg:pb-12">
         {/* Search and Controls */}
         <div className="space-y-6 mb-10">
           {/* Search Bar */}

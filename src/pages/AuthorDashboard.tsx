@@ -128,23 +128,16 @@ export default function AuthorDashboard() {
 
             {/* Actions */}
             <div className="flex items-center gap-3 shrink-0 pt-2">
-              <Button
-                variant="outline"
-                onClick={() => setIsEditingProfile(!isEditingProfile)}
-                className="h-10 border-border/40 font-semibold text-sm flex items-center gap-2 hover:bg-muted/10"
-              >
-                {isEditingProfile ? (
-                  <>
-                    <X className="w-4 h-4" />
-                    Close Editor
-                  </>
-                ) : (
-                  <>
-                    <Edit3 className="w-4 h-4" />
-                    Edit Profile
-                  </>
-                )}
-              </Button>
+              {!isEditingProfile && (
+                <Button
+                  variant="outline"
+                  onClick={() => setIsEditingProfile(true)}
+                  className="h-10 border-border/40 font-semibold text-sm flex items-center gap-2 hover:bg-muted/10"
+                >
+                  <Edit3 className="w-4 h-4" />
+                  Edit Profile
+                </Button>
+              )}
               {/* Fixed: was "/publish" (landing page), now "/author/submit" (book form) */}
               <Link to="/author/submit">
                 <Button className="h-10 bg-[#c84b2f] hover:bg-[#c84b2f]/90 text-white font-semibold text-sm flex items-center gap-2 px-5">
@@ -158,12 +151,13 @@ export default function AuthorDashboard() {
           {/* Profile Edit Drawer Component */}
           {isEditingProfile && (
             <div className="animate-in fade-in slide-in-from-top-4 duration-300">
-              <AuthorProfileEdit 
-                userId={user!.id} 
+              <AuthorProfileEdit
+                userId={user!.id}
                 onSuccess={() => {
                   refetch();
                   setIsEditingProfile(false);
-                }} 
+                }}
+                onCancel={() => setIsEditingProfile(false)}
               />
             </div>
           )}
@@ -228,6 +222,14 @@ export default function AuthorDashboard() {
               <h2 className="font-serif text-2xl text-foreground font-medium flex items-center gap-2">
                 <Sparkles className="w-5 h-5 text-[#c84b2f]" />
                 Your Catalog
+                {/* Real-time live indicator */}
+                <span className="flex items-center gap-1 ml-1">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                  </span>
+                  <span className="text-[10px] font-sans font-medium text-emerald-500 tracking-wide">LIVE</span>
+                </span>
               </h2>
               <span className="text-xs text-muted-foreground font-sans">
                 {books.length} published {books.length === 1 ? 'book' : 'books'}
