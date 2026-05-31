@@ -397,14 +397,14 @@ Thank you for your purchase!
 
   if (authLoading || isLoading) {
     return (
-      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-foreground">
+    <div className="min-h-screen bg-background text-foreground">
       <Navigation />
       
       <main className="container-main pt-24 pb-16 px-4 md:px-6">
@@ -417,7 +417,7 @@ Thank you for your purchase!
           </div>
 
           {/* User Hero Section */}
-          <div className="flex items-center gap-5 p-5 rounded-xl border border-border/30 bg-[#121212]/30">
+          <div className="flex items-center gap-5 p-5 rounded-xl border border-border/30 bg-muted/30">
             <div className="relative group shrink-0">
               <Avatar className="w-16 h-16 border border-border/40 shadow-sm">
                 <AvatarImage src={avatarUrl} alt={displayName} />
@@ -456,7 +456,7 @@ Thank you for your purchase!
           {/* Wisties Balance Card */}
           <Card 
             onClick={() => navigate('/profile/wisties')}
-            className="bg-gradient-to-br from-[#161616] to-[#0f0f0f] border-border/40 hover:border-[#c84b2f]/30 transition-all duration-300 shadow-sm cursor-pointer"
+            className="bg-card border-border/40 hover:border-[#c84b2f]/30 transition-all duration-300 shadow-sm cursor-pointer"
           >
             <CardContent className="p-6 flex items-center justify-between">
               <div className="space-y-1">
@@ -476,14 +476,14 @@ Thank you for your purchase!
 
           {/* Tabs for Settings / History */}
           <Tabs defaultValue="profile" className="w-full space-y-6">
-            <TabsList className="grid w-full grid-cols-2 bg-[#121212]/80 border border-border/30 p-1">
+            <TabsList className="grid w-full grid-cols-2 bg-muted border border-border/30 p-1">
               <TabsTrigger value="profile" className="font-sans font-medium">Profile Details</TabsTrigger>
               <TabsTrigger value="transactions" className="font-sans font-medium">Transaction History</TabsTrigger>
             </TabsList>
 
             {/* Profile Settings Content */}
             <TabsContent value="profile" className="space-y-6 outline-none">
-              <Card className="border-border/30 bg-[#0d0d0d]">
+              <Card className="border-border/30 bg-card">
                 <CardHeader className="pb-3 border-b border-border/20">
                   <CardTitle className="text-lg font-serif font-medium">Edit Profile Info</CardTitle>
                 </CardHeader>
@@ -498,7 +498,7 @@ Thank you for your purchase!
                       value={displayName}
                       onChange={(e) => setDisplayName(e.target.value)}
                       placeholder="Enter display name"
-                      className="bg-[#121212]/50 border-border/30 h-11 focus-visible:ring-[#c84b2f]"
+                      className="bg-muted/50 border-border/30 h-11 focus-visible:ring-[#c84b2f]"
                     />
                   </div>
 
@@ -514,7 +514,7 @@ Thank you for your purchase!
                         onChange={(e) => handleUsernameChange(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
                         placeholder="your_username"
                         maxLength={30}
-                        className={`bg-[#121212]/50 border-border/30 h-11 pr-10 focus-visible:ring-[#c84b2f] ${
+                        className={`bg-muted/50 border-border/30 h-11 pr-10 focus-visible:ring-[#c84b2f] ${
                           usernameError ? 'border-destructive focus-visible:ring-destructive' :
                           usernameAvailable === true ? 'border-green-500/50 focus-visible:ring-green-500' : ''
                         }`}
@@ -560,7 +560,7 @@ Thank you for your purchase!
               </Card>
 
               {/* Password Change Security */}
-              <Card className="border-border/30 bg-[#0d0d0d]">
+              <Card className="border-border/30 bg-card">
                 <CardHeader className="pb-3 border-b border-border/20">
                   <CardTitle className="text-lg font-serif font-medium">Security settings</CardTitle>
                 </CardHeader>
@@ -575,7 +575,7 @@ Thank you for your purchase!
                         Update Password
                       </Button>
                     </DialogTrigger>
-                    <DialogContent className="sm:max-w-[425px] bg-[#0d0d0d] border border-border/40 text-foreground">
+                    <DialogContent className="sm:max-w-[425px] bg-card border border-border/40 text-foreground">
                       <DialogHeader>
                         <DialogTitle className="font-serif text-xl">Change Password</DialogTitle>
                         <DialogDescription className="text-sm text-muted-foreground font-sans">
@@ -592,7 +592,7 @@ Thank you for your purchase!
                               value={currentPassword}
                               onChange={(e) => setCurrentPassword(e.target.value)}
                               placeholder="Enter current password"
-                              className="bg-[#121212]/50 border-border/30 pr-10 focus-visible:ring-[#c84b2f]"
+                              className="bg-muted/50 border-border/30 pr-10 focus-visible:ring-[#c84b2f]"
                             />
                             <button
                               type="button"
@@ -613,7 +613,7 @@ Thank you for your purchase!
                               value={newPassword}
                               onChange={(e) => setNewPassword(e.target.value)}
                               placeholder="Min. 8 characters"
-                              className="bg-[#121212]/50 border-border/30 pr-10 focus-visible:ring-[#c84b2f]"
+                              className="bg-muted/50 border-border/30 pr-10 focus-visible:ring-[#c84b2f]"
                             />
                             <button
                               type="button"
@@ -633,7 +633,7 @@ Thank you for your purchase!
                             value={confirmPassword}
                             onChange={(e) => setConfirmPassword(e.target.value)}
                             placeholder="Re-enter new password"
-                            className="bg-[#121212]/50 border-border/30 focus-visible:ring-[#c84b2f]"
+                            className="bg-muted/50 border-border/30 focus-visible:ring-[#c84b2f]"
                           />
                         </div>
                       </div>
@@ -663,7 +663,7 @@ Thank you for your purchase!
 
             {/* Transactions Content */}
             <TabsContent value="transactions" className="outline-none">
-              <Card className="border-border/30 bg-[#0d0d0d]">
+              <Card className="border-border/30 bg-card">
                 <CardHeader className="pb-3 border-b border-border/20">
                   <CardTitle className="text-lg font-serif font-medium">Purchase History</CardTitle>
                 </CardHeader>
@@ -679,7 +679,7 @@ Thank you for your purchase!
                       {purchases.map((purchase) => (
                         <div
                           key={purchase.id}
-                          className="flex items-center justify-between p-4 border border-border/30 rounded-lg bg-[#121212]/20 hover:bg-[#121212]/40 transition-colors"
+                          className="flex items-center justify-between p-4 border border-border/30 rounded-lg bg-muted/20 hover:bg-muted/40 transition-colors"
                         >
                           <div className="flex-1 min-w-0 pr-4">
                             <p className="font-serif font-medium truncate">{bookTitles[purchase.book_id] || "Digital Title"}</p>
@@ -717,7 +717,7 @@ Thank you for your purchase!
                               >
                                 <Trash2 className="w-4 h-4" />
                               </Button>
-                              <AlertDialogContent className="bg-[#0d0d0d] border border-border/40 text-foreground">
+                              <AlertDialogContent className="bg-card border border-border/40 text-foreground">
                                 <AlertDialogHeader>
                                   <AlertDialogTitle className="font-serif text-xl">Delete Transaction</AlertDialogTitle>
                                   <AlertDialogDescription className="text-sm text-muted-foreground font-sans">
