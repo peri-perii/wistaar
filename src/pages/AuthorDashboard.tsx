@@ -9,9 +9,10 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, BookOpen, Star, TrendingUp, Users, IndianRupee, Loader2, Edit3, X, Sparkles, Award } from 'lucide-react';
+import { Plus, BookOpen, Star, TrendingUp, Users, IndianRupee, Loader2, Edit3, X, Sparkles, Award, MessageSquare } from 'lucide-react';
 import { useAuthorDashboardData } from '@/hooks/useAuthorDashboardData';
 import AuthorProfileEdit from '@/components/author/AuthorProfileEdit';
+import CommunityFeed from '@/components/community/CommunityFeed';
 
 export default function AuthorDashboard() {
   const { user, loading: authLoading } = useAuth();
@@ -20,6 +21,7 @@ export default function AuthorDashboard() {
   const [isAuthor, setIsAuthor] = useState(false);
   const [checkingRole, setCheckingRole] = useState(true);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [activeTab, setActiveTab] = useState<'catalog' | 'community'>('catalog');
 
   // Fetch author specific dashboard data from custom hook
   const { data: dashboardData, isLoading: dataLoading, refetch } = useAuthorDashboardData();
@@ -216,112 +218,151 @@ export default function AuthorDashboard() {
             })}
           </div>
 
-          {/* Books Section */}
-          <div className="space-y-6">
-            <div className="flex items-center justify-between border-b border-border/20 pb-3">
-              <h2 className="font-serif text-2xl text-foreground font-medium flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-[#c84b2f]" />
+            {/* Tab switcher */}
+            <div className="flex items-center gap-1 border-b border-border/20 pb-0">
+              <button
+                onClick={() => setActiveTab('catalog')}
+                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === 'catalog'
+                    ? 'border-[#c84b2f] text-[#c84b2f]'
+                    : 'border-transparent text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <Sparkles className="w-4 h-4" />
                 Your Catalog
-                {/* Real-time live indicator */}
-                <span className="flex items-center gap-1 ml-1">
-                  <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-                  </span>
-                  <span className="text-[10px] font-sans font-medium text-emerald-500 tracking-wide">LIVE</span>
-                </span>
-              </h2>
-              <span className="text-xs text-muted-foreground font-sans">
-                {books.length} published {books.length === 1 ? 'book' : 'books'}
-              </span>
+              </button>
+              <button
+                onClick={() => setActiveTab('community')}
+                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === 'community'
+                    ? 'border-[#c84b2f] text-[#c84b2f]'
+                    : 'border-transparent text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <MessageSquare className="w-4 h-4" />
+                Community
+              </button>
             </div>
 
-            {books.length === 0 ? (
-              <div className="text-center py-20 border border-dashed border-border/30 rounded-xl bg-muted/30">
-                <BookOpen className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
-                <h3 className="font-serif text-xl font-medium text-foreground mb-2">No published books yet</h3>
-                <p className="text-muted-foreground text-sm max-w-sm mx-auto mb-6">
-                  Submit your manuscript, pricing, and cover. Once approved by the admin, it will instantly list here.
-                </p>
-                <Link to="/publish">
-                  <Button className="bg-[#c84b2f] hover:bg-[#c84b2f]/90 text-white font-semibold">
-                    Submit Your First Book
-                  </Button>
-                </Link>
+          {/* Tab content */}
+          {activeTab === 'catalog' && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between border-b border-border/20 pb-3">
+                <h2 className="font-serif text-2xl text-foreground font-medium flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-[#c84b2f]" />
+                  Your Catalog
+                  <span className="flex items-center gap-1 ml-1">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                    </span>
+                    <span className="text-[10px] font-sans font-medium text-emerald-500 tracking-wide">LIVE</span>
+                  </span>
+                </h2>
+                <span className="text-xs text-muted-foreground font-sans">
+                  {books.length} published {books.length === 1 ? 'book' : 'books'}
+                </span>
               </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {books.map((book) => {
-                  const isTopSeller = mostSoldBook && mostSoldBook.id === book.id && book.copiesSold > 0;
-                  const isHighestRated = topRatedBook && topRatedBook.id === book.id && book.rating > 0;
 
-                  return (
-                    <Card key={book.id} className="border-border/30 bg-card hover:border-[#c84b2f]/20 transition-all duration-300 flex flex-col justify-between overflow-hidden shadow-sm relative group">
-                      
-                      {/* Top Badges overlay */}
-                      <div className="absolute top-3 left-3 flex flex-col gap-1.5 z-10">
-                        {isTopSeller && books.length > 1 && (
-                          <Badge className="bg-emerald-500 hover:bg-emerald-600 text-white text-[9px] tracking-widest uppercase font-extrabold flex items-center gap-1 border-0 shadow-md h-5 px-2">
-                            <TrendingUp className="w-2.5 h-2.5" />
-                            Most Sold
-                          </Badge>
-                        )}
-                        {isHighestRated && (
-                          <Badge className="bg-amber-500 hover:bg-amber-600 text-white text-[9px] tracking-widest uppercase font-extrabold flex items-center gap-1 border-0 shadow-md h-5 px-2">
-                            <Award className="w-2.5 h-2.5" />
-                            Top Rated
-                          </Badge>
-                        )}
-                      </div>
+              {books.length === 0 ? (
+                <div className="text-center py-20 border border-dashed border-border/30 rounded-xl bg-muted/30">
+                  <BookOpen className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
+                  <h3 className="font-serif text-xl font-medium text-foreground mb-2">No published books yet</h3>
+                  <p className="text-muted-foreground text-sm max-w-sm mx-auto mb-6">
+                    Submit your manuscript, pricing, and cover. Once approved by the admin, it will instantly list here.
+                  </p>
+                  <Link to="/publish">
+                    <Button className="bg-[#c84b2f] hover:bg-[#c84b2f]/90 text-white font-semibold">
+                      Submit Your First Book
+                    </Button>
+                  </Link>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {books.map((book) => {
+                    const isTopSeller = mostSoldBook && mostSoldBook.id === book.id && book.copiesSold > 0;
+                    const isHighestRated = topRatedBook && topRatedBook.id === book.id && book.rating > 0;
 
-                      <CardContent className="p-5 flex gap-4">
-                        {/* Cover image or placeholder */}
-                        <div className="w-18 h-24 bg-muted rounded-md overflow-hidden relative shrink-0 shadow-sm">
-                        {book.coverUrl ? (
-                            <img
-                              src={book.coverUrl}
-                              alt={book.title}
-                              className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                              onError={(e) => {
-                                e.currentTarget.style.display = 'none';
-                                e.currentTarget.nextElementSibling?.classList.remove('hidden');
-                              }}
-                            />
-                          ) : null}
-                          <div className={`absolute inset-0 flex items-center justify-center text-muted-foreground/30 ${book.coverUrl ? 'hidden' : ''}`}>
-                            <BookOpen className="w-6 h-6" />
-                          </div>
+                    return (
+                      <Card key={book.id} className="border-border/30 bg-card hover:border-[#c84b2f]/20 transition-all duration-300 flex flex-col justify-between overflow-hidden shadow-sm relative group">
+
+                        {/* Top Badges overlay */}
+                        <div className="absolute top-3 left-3 flex flex-col gap-1.5 z-10">
+                          {isTopSeller && books.length > 1 && (
+                            <Badge className="bg-emerald-500 hover:bg-emerald-600 text-white text-[9px] tracking-widest uppercase font-extrabold flex items-center gap-1 border-0 shadow-md h-5 px-2">
+                              <TrendingUp className="w-2.5 h-2.5" />
+                              Most Sold
+                            </Badge>
+                          )}
+                          {isHighestRated && (
+                            <Badge className="bg-amber-500 hover:bg-amber-600 text-white text-[9px] tracking-widest uppercase font-extrabold flex items-center gap-1 border-0 shadow-md h-5 px-2">
+                              <Award className="w-2.5 h-2.5" />
+                              Top Rated
+                            </Badge>
+                          )}
                         </div>
 
-                        {/* Text Detail */}
-                        <div className="flex-1 min-w-0 flex flex-col justify-between">
-                          <div className="space-y-0.5">
-                            <h3 className="font-serif text-lg font-bold text-foreground leading-snug line-clamp-1 group-hover:text-[#c84b2f] transition-colors">{book.title}</h3>
-                            <p className="text-xs text-muted-foreground font-sans uppercase tracking-wider">{book.genre}</p>
+                        <CardContent className="p-5 flex gap-4">
+                          {/* Cover image or placeholder */}
+                          <div className="w-18 h-24 bg-muted rounded-md overflow-hidden relative shrink-0 shadow-sm">
+                          {book.coverUrl ? (
+                              <img
+                                src={book.coverUrl}
+                                alt={book.title}
+                                className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = 'none';
+                                  e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                                }}
+                              />
+                            ) : null}
+                            <div className={`absolute inset-0 flex items-center justify-center text-muted-foreground/30 ${book.coverUrl ? 'hidden' : ''}`}>
+                              <BookOpen className="w-6 h-6" />
+                            </div>
                           </div>
-                          <div className="flex flex-wrap items-center gap-3 pt-2 text-xs font-mono text-muted-foreground">
-                            <span className="flex items-center gap-1">
-                              <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
-                              {book.rating.toFixed(1)}
-                            </span>
-                            <span>·</span>
-                            <span>{book.copiesSold} sold</span>
+
+                          {/* Text Detail */}
+                          <div className="flex-1 min-w-0 flex flex-col justify-between">
+                            <div className="space-y-0.5">
+                              <h3 className="font-serif text-lg font-bold text-foreground leading-snug line-clamp-1 group-hover:text-[#c84b2f] transition-colors">{book.title}</h3>
+                              <p className="text-xs text-muted-foreground font-sans uppercase tracking-wider">{book.genre}</p>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-3 pt-2 text-xs font-mono text-muted-foreground">
+                              <span className="flex items-center gap-1">
+                                <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
+                                {book.rating.toFixed(1)}
+                              </span>
+                              <span>·</span>
+                              <span>{book.copiesSold} sold</span>
+                            </div>
                           </div>
+                        </CardContent>
+
+                        {/* Footer Earnings Split Details */}
+                        <div className="bg-muted/30 border-t border-border/20 p-4 flex items-center justify-between text-xs font-mono">
+                          <span className="text-muted-foreground">Net Earnings (65%)</span>
+                          <span className="font-serif font-bold text-lg text-[#c84b2f]">₹{book.earnings.toFixed(2)}</span>
                         </div>
-                      </CardContent>
 
-                      {/* Footer Earnings Split Details */}
-                      <div className="bg-muted/30 border-t border-border/20 p-4 flex items-center justify-between text-xs font-mono">
-                        <span className="text-muted-foreground">Net Earnings (65%)</span>
-                        <span className="font-serif font-bold text-lg text-[#c84b2f]">₹{book.earnings.toFixed(2)}</span>
-                      </div>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
 
-                    </Card>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+          {activeTab === 'community' && (
+            <CommunityFeed
+              authorId={user!.id}
+              author={{
+                displayName: profile.displayName || profile.username || 'Author',
+                avatarUrl: profile.avatarUrl,
+                username: profile.username,
+              }}
+              isOwner={true}
+            />
+          )}
 
         </div>
       </main>

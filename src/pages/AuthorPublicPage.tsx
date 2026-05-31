@@ -9,9 +9,10 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { BookOpen, Users, Star, Award, TrendingUp, Sparkles, AlertCircle, Loader2 } from "lucide-react";
+import { BookOpen, Users, Star, Award, TrendingUp, Sparkles, AlertCircle, Loader2, MessageSquare } from "lucide-react";
 import ApprovedBookCard from "@/components/ApprovedBookCard";
 import type { ApprovedBook } from "@/hooks/useApprovedBooks";
+import CommunityFeed from "@/components/community/CommunityFeed";
 
 interface AuthorProfileData {
   id: string;
@@ -35,6 +36,7 @@ export default function AuthorPublicPage() {
   const [mostSoldBookId, setMostSoldBookId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<'books' | 'posts'>('books');
 
   useEffect(() => {
     if (username) {
@@ -343,7 +345,34 @@ export default function AuthorPublicPage() {
             </div>
           )}
 
+          {/* Tab switcher */}
+          <div className="flex items-center gap-1 border-b border-border/20 pb-0">
+            <button
+              onClick={() => setActiveTab('books')}
+              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === 'books'
+                  ? 'border-[#c84b2f] text-[#c84b2f]'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <BookOpen className="w-4 h-4" />
+              Books
+            </button>
+            <button
+              onClick={() => setActiveTab('posts')}
+              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === 'posts'
+                  ? 'border-[#c84b2f] text-[#c84b2f]'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <MessageSquare className="w-4 h-4" />
+              Posts
+            </button>
+          </div>
+
           {/* Books grid */}
+          {activeTab === 'books' && (
           <div className="space-y-6">
             <h2 className="font-serif text-2xl text-foreground font-medium flex items-center gap-2 border-b border-border/20 pb-3">
               <Sparkles className="w-5 h-5 text-[#c84b2f]" />
@@ -363,6 +392,20 @@ export default function AuthorPublicPage() {
               </div>
             )}
           </div>
+          )}
+
+          {/* Community posts */}
+          {activeTab === 'posts' && author && (
+            <CommunityFeed
+              authorId={author.user_id}
+              author={{
+                displayName: author.display_name || author.username || 'Author',
+                avatarUrl: author.avatar_url,
+                username: author.username,
+              }}
+              isOwner={false}
+            />
+          )}
         </div>
       </main>
       <Footer />
