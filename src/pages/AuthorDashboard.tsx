@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, BookOpen, Star, TrendingUp, Users, DollarSign, Loader2, Edit3, X, Sparkles, Award } from 'lucide-react';
+import { Plus, BookOpen, Star, TrendingUp, Users, IndianRupee, Loader2, Edit3, X, Sparkles, Award } from 'lucide-react';
 import { useAuthorDashboardData } from '@/hooks/useAuthorDashboardData';
 import AuthorProfileEdit from '@/components/author/AuthorProfileEdit';
 
@@ -110,16 +110,19 @@ export default function AuthorDashboard() {
               <div className="space-y-2">
                 <div className="flex flex-wrap items-center justify-center md:justify-start gap-2">
                   <h1 className="font-serif text-3xl font-medium tracking-tight text-foreground">{profile.displayName}</h1>
-                  <Badge variant="outline" className="text-[10px] border-[#c84b2f]/20 text-[#c84b2f] bg-[#c84b2f]/5 tracking-widest uppercase py-0.5">
-                    Author Partner
-                  </Badge>
                 </div>
                 {profile.username && (
                   <p className="text-sm font-medium text-[#c84b2f]">@{profile.username}</p>
                 )}
-                <p className="text-sm text-muted-foreground/90 max-w-xl leading-relaxed whitespace-pre-line">
-                  {profile.bio || "Write a brief description of your background and style by clicking Edit Profile."}
-                </p>
+                {profile.bio ? (
+                  <p className="text-sm text-muted-foreground/90 max-w-xl leading-relaxed whitespace-pre-line">
+                    {profile.bio}
+                  </p>
+                ) : (
+                  <p className="text-sm text-muted-foreground/40 italic">
+                    No bio yet — click Edit Profile to add one.
+                  </p>
+                )}
               </div>
             </div>
 
@@ -187,7 +190,7 @@ export default function AuthorDashboard() {
               {
                 title: 'Total Earnings',
                 value: `₹${stats.totalEarnings.toFixed(2)}`,
-                icon: DollarSign,
+                icon: IndianRupee,
                 color: 'text-[#c84b2f]',
                 bgColor: 'bg-[#c84b2f]/10',
                 subtext: '65% of net catalog revenue',
@@ -226,7 +229,9 @@ export default function AuthorDashboard() {
                 <Sparkles className="w-5 h-5 text-[#c84b2f]" />
                 Your Catalog
               </h2>
-              <span className="text-xs text-muted-foreground font-mono">{books.length} published books</span>
+              <span className="text-xs text-muted-foreground font-sans">
+                {books.length} published {books.length === 1 ? 'book' : 'books'}
+              </span>
             </div>
 
             {books.length === 0 ? (
@@ -253,7 +258,7 @@ export default function AuthorDashboard() {
                       
                       {/* Top Badges overlay */}
                       <div className="absolute top-3 left-3 flex flex-col gap-1.5 z-10">
-                        {isTopSeller && (
+                        {isTopSeller && books.length > 1 && (
                           <Badge className="bg-emerald-500 hover:bg-emerald-600 text-white text-[9px] tracking-widest uppercase font-extrabold flex items-center gap-1 border-0 shadow-md h-5 px-2">
                             <TrendingUp className="w-2.5 h-2.5" />
                             Most Sold
@@ -270,17 +275,20 @@ export default function AuthorDashboard() {
                       <CardContent className="p-5 flex gap-4">
                         {/* Cover image or placeholder */}
                         <div className="w-18 h-24 bg-muted rounded-md overflow-hidden relative shrink-0 shadow-sm">
-                          {book.coverUrl ? (
+                        {book.coverUrl ? (
                             <img
                               src={book.coverUrl}
                               alt={book.title}
                               className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none';
+                                e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                              }}
                             />
-                          ) : (
-                            <div className="absolute inset-0 flex items-center justify-center text-muted-foreground/30">
-                              <BookOpen className="w-6 h-6" />
-                            </div>
-                          )}
+                          ) : null}
+                          <div className={`absolute inset-0 flex items-center justify-center text-muted-foreground/30 ${book.coverUrl ? 'hidden' : ''}`}>
+                            <BookOpen className="w-6 h-6" />
+                          </div>
                         </div>
 
                         {/* Text Detail */}
