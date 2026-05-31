@@ -81,7 +81,7 @@ export default function AuthorDashboard() {
 
   if (authLoading || checkingRole || dataLoading) {
     return (
-      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
       </div>
     );
@@ -93,7 +93,7 @@ export default function AuthorDashboard() {
   const initials = (profile.displayName || profile.username || "A").slice(0, 2).toUpperCase();
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-foreground">
+    <div className="min-h-screen bg-background text-foreground">
       <Navigation />
       <main className="pt-24 pb-20 px-4 md:px-6">
         <div className="max-w-6xl mx-auto space-y-10">
@@ -203,7 +203,7 @@ export default function AuthorDashboard() {
             ].map((stat) => {
               const Icon = stat.icon;
               return (
-                <Card key={stat.title} className="border-border/30 bg-[#121212]/10 hover:border-[#c84b2f]/20 transition-all duration-300 shadow-sm">
+                <Card key={stat.title} className="border-border/30 bg-card hover:border-[#c84b2f]/20 transition-all duration-300 shadow-sm">
                   <CardContent className="p-5 flex items-center justify-between">
                     <div className="min-w-0 flex-1">
                       <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">{stat.title}</p>
@@ -230,7 +230,7 @@ export default function AuthorDashboard() {
             </div>
 
             {books.length === 0 ? (
-              <div className="text-center py-20 border border-dashed border-border/30 rounded-xl bg-[#121212]/10">
+              <div className="text-center py-20 border border-dashed border-border/30 rounded-xl bg-muted/30">
                 <BookOpen className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
                 <h3 className="font-serif text-xl font-medium text-foreground mb-2">No published books yet</h3>
                 <p className="text-muted-foreground text-sm max-w-sm mx-auto mb-6">
@@ -249,7 +249,7 @@ export default function AuthorDashboard() {
                   const isHighestRated = topRatedBook && topRatedBook.id === book.id && book.rating > 0;
 
                   return (
-                    <Card key={book.id} className="border-border/30 bg-[#0d0d0d] hover:border-[#c84b2f]/20 transition-all duration-300 flex flex-col justify-between overflow-hidden shadow-sm relative group">
+                    <Card key={book.id} className="border-border/30 bg-card hover:border-[#c84b2f]/20 transition-all duration-300 flex flex-col justify-between overflow-hidden shadow-sm relative group">
                       
                       {/* Top Badges overlay */}
                       <div className="absolute top-3 left-3 flex flex-col gap-1.5 z-10">
@@ -301,7 +301,7 @@ export default function AuthorDashboard() {
                       </CardContent>
 
                       {/* Footer Earnings Split Details */}
-                      <div className="bg-[#121212]/30 border-t border-border/20 p-4 flex items-center justify-between text-xs font-mono">
+                      <div className="bg-muted/30 border-t border-border/20 p-4 flex items-center justify-between text-xs font-mono">
                         <span className="text-muted-foreground">Net Earnings (65%)</span>
                         <span className="font-serif font-bold text-lg text-[#c84b2f]">₹{book.earnings.toFixed(2)}</span>
                       </div>
